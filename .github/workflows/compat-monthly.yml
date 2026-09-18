@@ -1,0 +1,60 @@
+name: Monthly compatibility check
+
+# dsh is a developer preview and may ship breaking changes. Once a month,
+# re-resolve @deepseek-ai/cordis to the latest published version and run the
+# full typecheck + build + test matrix. A failure opens an issue so drift is
+# caught within a month, not by the next user.
+
+on:
+  schedule:
+    - cron: '0 4 1 * *' # 1st of every month, 04:00 UTC
+  workflow_dispatch: {}
+
+jobs:
+  compat:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Resolve latest @deepseek-ai/cordis
+        run: |
+          pnpm -r update @deepseek-ai/cordis @deepseek-ai/schemastery --latest
+          pnpm ls -r --depth 1 | grep -E '@deepseek-ai' || true
+
+      - name: Install
+        run: pnpm install --no-lockfile
+
+      - name: Typecheck
+        run: pnpm -r typecheck
+
+      - name: Build & Test
+        run: pnpm -r test
+
+      - name: Report drift
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = `[compat] monthly check failed (${new Date().toISOString().slice(0, 10)})`
+            const body = [
+              'The monthly compatibility check against the latest `@deepseek-ai/cordis` failed.',
+              '',
+              `Run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              '',
+              'Likely causes: a breaking change in cordis/schemastery (types or runtime).',
+              'Pin the last known-good versions, adapt the code, then re-widen `peerDependencies`.',
+            ].join('\n')
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body,
+              labels: ['compat'],
+            })

@@ -1,0 +1,39 @@
+# dsh-trace — OpenTelemetry (OTLP/HTTP) + Langfuse trace exporter
+#
+# Install:   dsh plugin --profile web add dsh-trace
+# Verify:    dsh --profile web --dump-config | grep -A3 'id: dsh-trace'
+#
+# The row ships DISABLED (off by default). Turn it on by setting enabled: true
+# and configuring at least one backend below.
+#
+# NOTE: a profile-level patch targeting this id replaces the WHOLE row config
+# (no deep merge) — restate every key you want to keep.
+- insert:
+  - id: dsh-trace
+    name: dsh-trace
+    config:
+      enabled: false
+      # ---- OTLP backend (Jaeger / Tempo / any OTLP/HTTP collector) ----
+      # otlp:
+      #   endpoint: http://localhost:4318      # /v1/traces is appended
+      #   serviceName: deepseek-harness
+      #   # serviceVersion: 1.0.0
+      #   # headers: { "x-auth": "..." }
+      # ---- Langfuse backend ----
+      # langfuse:
+      #   publicKey: pk-lf-...
+      #   secretKey: sk-lf-...
+      #   # baseUrl: https://cloud.langfuse.com
+      #   # release: my-app@1.0.0
+      #   # tags: [dsh]
+      # ---- capture switches (all default true) ----
+      # capture:
+      #   turns: true
+      #   steps: true
+      #   tools: true
+      #   llm: true
+      # ---- sanitize (on by default; see README) ----
+      # sanitize:
+      #   enabled: true
+      #   redactKeys: []
+      #   redactPatterns: []

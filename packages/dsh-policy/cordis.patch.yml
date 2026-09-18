@@ -1,0 +1,49 @@
+# dsh-policy — declarative tool-call permission control
+#
+# Install:   dsh plugin --profile web add dsh-policy
+# Verify:    dsh --profile web --dump-config | grep -A3 'id: dsh-policy'
+#
+# The row ships DISABLED (off by default): the harness runs with its own
+# approval policy until you opt in. When enabled, the default decision for
+# tool calls that match no rule is `ask` (fail-closed).
+#
+# NOTE: a profile-level patch targeting this id replaces the WHOLE row config
+# (no deep merge) — restate every key you want to keep.
+- insert:
+  - id: dsh-policy
+    name: dsh-policy
+    config:
+      enabled: false
+      defaultDecision: ask            # allow | deny | ask  (for calls matching no rule)
+      failClosed: true                # evaluator errors => deny
+      rules:
+        # ---- deny obviously destructive commands ----
+        - id: deny-destructive-commands
+          effect: deny
+          priority: 100
+          tools: ["bash"]
+          commands: ["rm\\s+-rf\\s+/(?!tmp|var/folders)", "git\\s+push\\s+.*--force", "mkfs", "dd\\s+if=.*of=/dev/"]
+          reason: "Destructive command blocked by dsh-policy"
+        # ---- deny sensitive paths ----
+        - id: deny-sensitive-paths
+          effect: deny
+          priority: 90
+          paths: ["/etc/**", "/root/.ssh/**", "**/.env", "**/*.pem"]
+          reason: "Sensitive path blocked by dsh-policy"
+        # ---- allow everyday dev commands ----
+        - id: allow-dev-commands
+          effect: allow
+          priority: 50
+          tools: ["bash"]
+          commands: ["^(git|pnpm|npm|node|pytest|python|ls|cat|grep|rg|mkdir)\\b"]
+        # ---- ask before writes ----
+        - id: ask-file-writes
+          effect: ask
+          tools: ["write", "edit", "write_file", "edit_file"]
+        # ---- allow read-only tools ----
+        - id: allow-read-only
+          effect: allow
+          tools: ["read", "read_file", "glob", "grep", "search_*", "list_*"]
+      audit:
+        enabled: true
+        # file: .dsh-policy/audit.jsonl   (default: <cwd>/.dsh-policy/audit.jsonl)

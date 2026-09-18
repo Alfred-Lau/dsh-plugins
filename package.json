@@ -1,0 +1,22 @@
+{
+  "name": "dsh-plugins",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "DeepSeek Harness community plugins: dsh-trace (observability) and dsh-policy (tool-call permission control).",
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
+  "scripts": {
+    "typecheck": "pnpm -r run typecheck",
+    "test": "pnpm -r run test",
+    "build": "pnpm -r run build"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "dependencies": {
+    "@deepseek-ai/cordis": "^4.0.2",
+    "@deepseek-ai/schemastery": "^3.18.2",
+    "@types/node": "^22.10.5",
+    "typescript": "^5.7.3"
+  }
+}
