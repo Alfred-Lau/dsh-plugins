@@ -4,3 +4,4 @@ lib/
 .vitest/
 coverage/
 .DS_Store
+dist/
