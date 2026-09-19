@@ -31,7 +31,7 @@ entry point. They are vendored-dependency-free and target `@deepseek-ai/cordis ^
 ```bash
 # install into a profile (example: web)
 dsh plugin --profile web add dsh-trace
-dsh plugin --profile web add dsh-policy
+dsh plugin --profile web add dsh-tool-policy
 ```
 
 Both plugins ship **disabled** in their bundled config row — the harness keeps

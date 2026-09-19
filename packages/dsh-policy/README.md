@@ -1,4 +1,6 @@
-# dsh-policy
+# dsh-tool-policy
+
+> npm package name is `dsh-tool-policy` (`dsh-policy` on the registry is a reserved placeholder); the harness plugin id stays `dsh-policy`.
 
 Declarative tool-call permission control for DeepSeek Harness. Rules decide
 `allow` / `deny` / `ask` **before** a tool runs (`tools/pre-execute`), outcomes
@@ -43,7 +45,7 @@ interface PolicyRule {
 ## Install & enable
 
 ```bash
-dsh plugin --profile web add dsh-policy
+dsh plugin --profile web add dsh-tool-policy
 ```
 
 The bundled row ships `enabled: false` (the harness keeps its own approval flow
@@ -55,7 +57,7 @@ read-only tools.
 ```yaml
 - insert:
   - id: dsh-policy
-    name: dsh-policy
+    name: dsh-tool-policy
     config:
       enabled: true
       defaultDecision: ask
@@ -111,19 +113,19 @@ JSONL, one entry per line, phase-tagged:
 ## Relationship to other solutions
 
 - `dsh-permission-rules` (PerryLink) covers minimal allow/deny lists with an
-  audit trail. `dsh-policy` adds the three-dimensional rule model (tool ×
+  audit trail. `dsh-tool-policy` adds the three-dimensional rule model (tool ×
   command × path), priorities with first-match-wins, regex command matching,
   embedded-path extraction, an explicit `ask` effect wired into the approval
   chain, and fail-closed defaults — a superset aimed at unattended/CI profiles.
 - Claude Code's `PreToolUse` hooks and Gemini CLI's policy engine solve the same
-  problem in their own ecosystems; `dsh-policy` ports that posture to dsh.
+  problem in their own ecosystems; `dsh-tool-policy` ports that posture to dsh.
 
 ## Library use
 
 The evaluator and helpers are exported for standalone use:
 
 ```ts
-import { PolicyEvaluator, globToRegExp, extractCommands, extractPaths } from 'dsh-policy'
+import { PolicyEvaluator, globToRegExp, extractCommands, extractPaths } from 'dsh-tool-policy'
 
 const ev = new PolicyEvaluator(rules, { defaultDecision: 'ask', failClosed: true })
 ev.evaluate({ tool: 'bash', args: { command: 'git push --force' }, sessionId: 's1' })

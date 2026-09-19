@@ -1,6 +1,6 @@
 # dsh-policy — declarative tool-call permission control
 #
-# Install:   dsh plugin --profile web add dsh-policy
+# Install:   dsh plugin --profile web add dsh-tool-policy
 # Verify:    dsh --profile web --dump-config | grep -A3 'id: dsh-policy'
 #
 # The row ships DISABLED (off by default): the harness runs with its own
@@ -11,7 +11,7 @@
 # (no deep merge) — restate every key you want to keep.
 - insert:
   - id: dsh-policy
-    name: dsh-policy
+    name: dsh-tool-policy
     config:
       enabled: false
       defaultDecision: ask            # allow | deny | ask  (for calls matching no rule)

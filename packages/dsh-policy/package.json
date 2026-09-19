@@ -1,5 +1,5 @@
 {
-  "name": "dsh-policy",
+  "name": "dsh-tool-policy",
   "version": "0.1.0",
   "description": "Declarative tool-call permission control for DeepSeek Harness — allow/deny/ask rules over tools, paths and commands, fail-closed by default, with JSONL audit log.",
   "type": "module",
