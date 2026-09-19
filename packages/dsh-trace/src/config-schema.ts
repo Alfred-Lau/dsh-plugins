@@ -7,7 +7,7 @@ import type { TraceConfig } from './types.js'
  * schema never rejects a config row the typed loader accepts; stricter
  * runtime checks live in `apply()`.
  */
-export const Config = Schema.object({
+export const Config: Schema<TraceConfig> = Schema.object({
   enabled: Schema.boolean().default(false),
   otlp: Schema.object({
     endpoint: Schema.string().default(''),

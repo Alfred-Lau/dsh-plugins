@@ -7,7 +7,7 @@ import type { PolicyConfig } from './types.js'
  * config row the typed loader accepts; validation lives in PolicyEvaluator
  * (which fails loud on bad rules at load time).
  */
-export const Config = Schema.object({
+export const Config: Schema<PolicyConfig> = Schema.object({
   enabled: Schema.boolean().default(false),
   rules: Schema.array(
     Schema.object({
