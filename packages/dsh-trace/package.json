@@ -1,5 +1,5 @@
 {
-  "name": "dsh-trace",
+  "name": "dsh-tracing",
   "version": "0.1.0",
   "description": "OpenTelemetry (OTLP/HTTP) + Langfuse trace exporter for DeepSeek Harness — GenAI semconv, sanitized before send, batched with retry, off by default.",
   "type": "module",

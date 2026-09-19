@@ -1,4 +1,6 @@
-# dsh-trace
+# dsh-tracing
+
+> npm package name is `dsh-tracing` (`dsh-trace` is blocked by npm name-similarity rules); the harness plugin id stays `dsh-trace`.
 
 OpenTelemetry-compatible tracing for DeepSeek Harness sessions. Projects session
 events into a span tree and exports them over **OTLP/HTTP (JSON)** or the
@@ -31,7 +33,7 @@ observability stack stays the source of truth.
 ## Install & enable
 
 ```bash
-dsh plugin --profile web add dsh-trace
+dsh plugin --profile web add dsh-tracing
 ```
 
 The bundled row ships `enabled: false`. Enable it in your profile patch:
@@ -39,7 +41,7 @@ The bundled row ships `enabled: false`. Enable it in your profile patch:
 ```yaml
 - insert:
   - id: dsh-trace
-    name: dsh-trace
+    name: dsh-tracing
     config:
       enabled: true
       otlp:

@@ -1,6 +1,6 @@
 # dsh-trace — OpenTelemetry (OTLP/HTTP) + Langfuse trace exporter
 #
-# Install:   dsh plugin --profile web add dsh-trace
+# Install:   dsh plugin --profile web add dsh-tracing
 # Verify:    dsh --profile web --dump-config | grep -A3 'id: dsh-trace'
 #
 # The row ships DISABLED (off by default). Turn it on by setting enabled: true
@@ -10,7 +10,7 @@
 # (no deep merge) — restate every key you want to keep.
 - insert:
   - id: dsh-trace
-    name: dsh-trace
+    name: dsh-tracing
     config:
       enabled: false
       # ---- OTLP backend (Jaeger / Tempo / any OTLP/HTTP collector) ----
