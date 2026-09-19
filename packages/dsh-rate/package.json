@@ -1,0 +1,34 @@
+{
+  "name": "dsh-rate-shield",
+  "version": "0.1.0",
+  "description": "Rate & budget governance for DeepSeek Harness — 429 backoff windows, daily token budgets, tool-call storm control; monitor by default, enforce opt-in, JSONL audit.",
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": { "types": "./lib/index.d.ts", "import": "./lib/index.js" },
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": ["lib", "cordis.patch.yml", "README.md", "LICENSE"],
+  "dsh": { "bundle": { "patch": "./cordis.patch.yml" } },
+  "engines": { "node": "^22.19.0 || >=24.0.0" },
+  "keywords": ["dsh", "dsh-plugin", "deepseek-harness", "deepseek", "cordis", "rate-limit", "429", "backoff", "budget", "quota", "throttle", "guardrails"],
+  "license": "MIT",
+  "peerDependencies": { "@deepseek-ai/cordis": "^4.0.1" },
+  "peerDependenciesMeta": { "@deepseek-ai/cordis": { "optional": true } },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.6.0",
+    "@deepseek-ai/cordis": "4.0.2",
+    "@deepseek-ai/schemastery": "3.18.2"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run -s build && node --test test/"
+  },
+  "repository": { "type": "git", "url": "git+https://github.com/Alfred-Lau/dsh-plugins.git" },
+  "bugs": { "url": "https://github.com/Alfred-Lau/dsh-plugins/issues" },
+  "homepage": "https://github.com/Alfred-Lau/dsh-plugins#readme"
+}

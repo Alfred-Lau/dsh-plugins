@@ -2,14 +2,17 @@
 
 Community plugins for [DeepSeek Harness (dsh)](https://github.com/deepseek-ai/deepseek-harness).
 
-Two plugins, two jobs:
+Five plugins, five jobs:
 
 | Plugin | What it does | Key idea |
 | --- | --- | --- |
 | [`dsh-trace`](./packages/dsh-trace) | Observability: project harness sessions into OpenTelemetry-compatible spans and export them | Ships your data to **your** existing backend (OTLP/HTTP collector or Langfuse). Sanitize-before-send. GenAI semconv aligned. |
 | [`dsh-policy`](./packages/dsh-policy) | Declarative tool-call permission control with an audit trail | Three-dimensional rules (tool / command / path), first-match-wins with priorities, **fail-closed**, JSONL audit log. |
+| [`dsh-pii`](./packages/dsh-pii) | PII detection & exfiltration guard | Checksum-validated detectors (emails, IDs, cards, keys), block outbound calls carrying PII, audit **without storing raw matches**. |
+| [`dsh-memo`](./packages/dsh-memo) | Tool-result memoization (TTL + LRU) | Repeated identical tool calls short-circuit with an explanatory cached preview; mutating tools excluded by default. |
+| [`dsh-rate`](./packages/dsh-rate) | 429 backoff, daily token budgets, tool-storm control | Exponential backoff windows + budget watermarks + storm gates; **monitor-first**, enforce is opt-in. |
 
-Both plugins follow the [dsh plugin contract](#plugin-contract): a cordis-bundle
+All plugins follow the [dsh plugin contract](#plugin-contract): a cordis-bundle
 row (`cordis.patch.yml`), a schema-validated `Config`, and an `apply(ctx, config)`
 entry point. They are vendored-dependency-free and target `@deepseek-ai/cordis ^4.0.1`.
 
@@ -25,6 +28,16 @@ entry point. They are vendored-dependency-free and target `@deepseek-ai/cordis ^
   had only minimal allow/deny lists. `dsh-policy` brings a real rule model:
   glob tool patterns, regex command matching, path globs, priorities, explicit
   `allow` / `deny` / `ask` effects, and a fail-closed default.
+- **PII protection was a total blank.** Agent sessions carry personal data into
+  logs, observability backends and outbound tool calls. Nobody in the dsh
+  ecosystem guarded that seam. `dsh-pii-gate` closes it with checksum-validated
+  detectors and a no-raw-text audit trail.
+- **Repeated tool calls burn real money.** Every duplicate `read_file` /
+  `search` re-executes and re-fills the context window. `dsh-tool-memo` is the
+  first real memoization layer for dsh.
+- **Long-running agents hit rate limits unprepared.** 429 backoff, budget
+  watermarks and storm control existed for every framework except dsh.
+  `dsh-rate-shield` fills that hole honestly (see its README for scope).
 
 ## Quick start
 
@@ -32,6 +45,9 @@ entry point. They are vendored-dependency-free and target `@deepseek-ai/cordis ^
 # install into a profile (example: web)
 dsh plugin --profile web add dsh-tracing
 dsh plugin --profile web add dsh-tool-policy
+dsh plugin --profile web add dsh-pii-gate
+dsh plugin --profile web add dsh-tool-memo
+dsh plugin --profile web add dsh-rate-shield
 ```
 
 Both plugins ship **disabled** in their bundled config row — the harness keeps

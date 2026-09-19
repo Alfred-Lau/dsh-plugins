@@ -1,0 +1,44 @@
+# dsh-pii-gate — PII detection & exfiltration guard
+#
+# Install:   dsh plugin --profile web add dsh-pii-gate
+# Verify:    dsh --profile web --dump-config | grep -A3 'id: dsh-pii'
+#
+# Ships DISABLED (off by default). mode: 'audit' observes and audits only;
+# mode: 'block' denies tool calls on outbound tools carrying PII.
+#
+# NOTE: a profile-level patch targeting this id replaces the WHOLE row config
+# (no deep merge) — restate every key you want to keep.
+- insert:
+  - id: dsh-pii
+    name: dsh-pii-gate
+    config:
+      enabled: false
+      mode: audit                      # audit | block
+      outboundTools:                   # block-mode targets
+        - bash
+        - shell
+        - "http*"
+        - "fetch*"
+        - "web*"
+        - "send*"
+        - "mail*"
+        - "email*"
+        - "upload*"
+        - "request*"
+      exemptTools: []
+      detectors:
+        email: true
+        phone_cn: true
+        phone_intl: true
+        cn_id: true                    # checksum-validated
+        credit_card: true              # Luhn-validated
+        api_key: true
+        ssn: true
+        ipv4: false                    # opt-in (version-string false positives)
+        iban: false                    # opt-in
+      customPatterns: []               # - {name: mrn, pattern: 'MRN-\\d{8}'}
+      minMatches: 1
+      scanResults: true
+      audit:
+        enabled: true
+        # file: .dsh-pii-gate/audit.jsonl   (default: <cwd>/.dsh-pii-gate/audit.jsonl)

@@ -21,7 +21,52 @@ importers:
         specifier: ^5.7.3
         version: 5.9.3
 
+  packages/dsh-memo:
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: 4.0.2
+        version: 4.0.2
+      '@deepseek-ai/schemastery':
+        specifier: 3.18.2
+        version: 3.18.2
+      '@types/node':
+        specifier: ^22.10.0
+        version: 22.20.4
+      typescript:
+        specifier: ^5.6.0
+        version: 5.9.3
+
+  packages/dsh-pii:
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: 4.0.2
+        version: 4.0.2
+      '@deepseek-ai/schemastery':
+        specifier: 3.18.2
+        version: 3.18.2
+      '@types/node':
+        specifier: ^22.10.0
+        version: 22.20.4
+      typescript:
+        specifier: ^5.6.0
+        version: 5.9.3
+
   packages/dsh-policy:
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: 4.0.2
+        version: 4.0.2
+      '@deepseek-ai/schemastery':
+        specifier: 3.18.2
+        version: 3.18.2
+      '@types/node':
+        specifier: ^22.10.0
+        version: 22.20.4
+      typescript:
+        specifier: ^5.6.0
+        version: 5.9.3
+
+  packages/dsh-rate:
     devDependencies:
       '@deepseek-ai/cordis':
         specifier: 4.0.2

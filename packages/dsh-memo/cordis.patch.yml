@@ -1,0 +1,31 @@
+# dsh-tool-memo — tool-result memoization (TTL + LRU)
+#
+# Install:   dsh plugin --profile web add dsh-tool-memo
+# Verify:    dsh --profile web --dump-config | grep -A3 'id: dsh-memo'
+#
+# Ships DISABLED (off by default). mode: 'hint' denies repeat calls with an
+# explanatory cached-preview reason (safe default); mode: 'inject' is
+# EXPERIMENTAL and additionally carries the full cached result on the verdict.
+# Mutating/outbound tools are excluded by default — see DEFAULT_EXCLUDE_TOOLS.
+#
+# NOTE: a profile-level patch targeting this id replaces the WHOLE row config
+# (no deep merge) — restate every key you want to keep.
+- insert:
+  - id: dsh-memo
+    name: dsh-tool-memo
+    config:
+      enabled: false
+      mode: hint                       # hint | inject (inject = experimental)
+      defaultTtlMs: 600000             # 10 min
+      perToolTtl:                      # longest/first matching glob wins
+        - tool: read_file
+          ttlMs: 300000
+        - tool: "search*"
+          ttlMs: 120000
+      maxEntries: 256
+      excludeTools: []                 # empty = built-in mutating/outbound list
+      includeTools: []                 # empty = all non-excluded tools
+      freshFlag: _memoFresh            # args flag that bypasses the cache
+      audit:
+        enabled: true
+        # file: .dsh-tool-memo/audit.jsonl  (default: <cwd>/.dsh-tool-memo/audit.jsonl)
