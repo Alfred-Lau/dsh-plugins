@@ -24,6 +24,14 @@ export const Config: Schema<TraceConfig> = Schema.object({
     tags: Schema.array(Schema.string()),
     timeoutMs: Schema.number().default(10_000),
   }),
+  httpUsage: Schema.object({
+    endpoint: Schema.string().default(''),
+    headers: Schema.dict(Schema.string()),
+    timeoutMs: Schema.number().default(10_000),
+    mode: Schema.union(['spans', 'usage']).default('spans'),
+    eventType: Schema.string().default('com.dsh.llm.usage'),
+    eventSource: Schema.string().default('deepseek-harness'),
+  }),
   capture: Schema.object({
     turns: Schema.boolean().default(true),
     steps: Schema.boolean().default(true),

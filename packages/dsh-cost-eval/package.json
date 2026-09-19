@@ -1,0 +1,56 @@
+{
+  "name": "dsh-cost-eval",
+  "version": "0.1.0",
+  "description": "Cost-effectiveness reports and cost release gates over dsh-eval run records — quality x cost matrix, leaderboard, CI gate. Companion to dsh-eval, not a runner.",
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "import": "./lib/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "dsh-cost-eval": "./lib/cli.js"
+  },
+  "files": [
+    "lib",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-eval",
+    "deepseek-harness",
+    "deepseek",
+    "eval",
+    "benchmark",
+    "cost",
+    "tokens",
+    "cost-effectiveness",
+    "release-gate",
+    "ci"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Alfred-Lau/dsh-plugins.git"
+  },
+  "author": null,
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run -s build && node --test test/*.test.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.6.0",
+    "@deepseek-ai/cordis": "4.0.2",
+    "@deepseek-ai/schemastery": "3.18.2"
+  }
+}

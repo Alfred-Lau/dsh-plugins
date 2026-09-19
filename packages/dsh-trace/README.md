@@ -16,9 +16,10 @@ observability stack stays the source of truth.
   `gen_ai.usage.input_tokens` / `output_tokens`, plus cache-read and reasoning
   token details. Token invariants are respected: cache-read counts inside input,
   reasoning inside output — details are exported as attributes, never re-summed.
-- **Two backends, fan-out enabled**: OTLP/HTTP (Jaeger, Tempo, Alloy, …) and
+- **Three backends, fan-out enabled**: OTLP/HTTP (Jaeger, Tempo, Alloy, …),
   Langfuse (traces map to `trace-create`, tools/steps to `span-create`, LLM calls
-  to `generation-create` with `usage` in Langfuse token units).
+  to `generation-create` with `usage` in Langfuse token units), and a generic
+  HTTP usage gateway (raw span arrays or OpenMeter-style CloudEvents).
 - **Sanitize before send**: built-in key redaction (`key`, `token`, `secret`,
   `password`, `authorization`, …), credential patterns (`sk-…`, `ghp_…`, `AKIA…`,
   `Bearer …`, PEM blocks), per-field truncation budgets, and an attribute-length
@@ -51,6 +52,10 @@ The bundled row ships `enabled: false`. Enable it in your profile patch:
       #   publicKey: pk-lf-...
       #   secretKey: sk-lf-...
       #   baseUrl: https://cloud.langfuse.com
+      # httpUsage:                       # OpenMeter-style metering gateway
+      #   endpoint: https://meter.internal/api/v1/events
+      #   headers: { authorization: Bearer ... }
+      #   mode: usage                     # usage = CloudEvents, spans = raw JSON
 ```
 
 > A profile-level patch targeting this id **replaces the whole row config**
@@ -63,6 +68,7 @@ The bundled row ships `enabled: false`. Enable it in your profile patch:
 | `enabled` | `boolean` | `false` | No-op when false (logs and exits). |
 | `otlp` | `object?` | – | OTLP/HTTP backend. `endpoint` required; `/v1/traces` appended automatically. Optional `serviceName` (`deepseek-harness`), `serviceVersion`, `headers`. |
 | `langfuse` | `object?` | – | Langfuse backend. `publicKey`/`secretKey` required (Basic auth); optional `baseUrl` (cloud default), `release`, `tags`. |
+| `httpUsage` | `object?` | – | Generic HTTP gateway backend. `endpoint` required; optional `headers`, `timeoutMs`, `mode` (`spans` posts the raw span JSON array, `usage` posts OpenMeter-compatible CloudEvents with token buckets from LLM spans only), `eventType`/`eventSource` (usage mode). |
 | `capture.turns` / `capture.steps` / `capture.tools` / `capture.llm` | `boolean` | `true` | Per-kind capture switches. |
 | `capture.llm.prompt` / `capture.llm.completion` | `boolean` | `true` | Include prompt/completion text (subject to truncation + sanitization). |
 | `sanitize.enabled` | `boolean` | `true` | Master switch. |

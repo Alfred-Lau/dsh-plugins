@@ -17,6 +17,23 @@ export interface LangfuseConfig {
   timeoutMs?: number
 }
 
+export interface HttpUsageConfig {
+  /** Gateway endpoint that accepts `POST` JSON batches. */
+  endpoint: string
+  headers?: Record<string, string>
+  timeoutMs?: number
+  /**
+   * `spans` posts the raw span batch as a JSON array (generic ingest).
+   * `usage` posts OpenMeter-compatible CloudEvents carrying only token usage
+   * extracted from LLM spans (billing/metering gateways).
+   */
+  mode?: 'spans' | 'usage'
+  /** CloudEvents `type` for mode `usage`. */
+  eventType?: string
+  /** CloudEvents `source` for mode `usage`. */
+  eventSource?: string
+}
+
 export interface CaptureConfig {
   turns?: boolean
   steps?: boolean
@@ -72,6 +89,7 @@ export interface TraceConfig {
   enabled: boolean
   otlp?: OtlpConfig | null
   langfuse?: LangfuseConfig | null
+  httpUsage?: HttpUsageConfig | null
   capture?: CaptureConfig
   llm?: LlmCaptureConfig
   metadata?: MetadataConfig

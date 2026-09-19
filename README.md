@@ -2,7 +2,7 @@
 
 Community plugins for [DeepSeek Harness (dsh)](https://github.com/deepseek-ai/deepseek-harness).
 
-Five plugins, five jobs:
+Six plugins, six jobs:
 
 | Plugin | What it does | Key idea |
 | --- | --- | --- |
@@ -11,6 +11,7 @@ Five plugins, five jobs:
 | [`dsh-pii`](./packages/dsh-pii) | PII detection & exfiltration guard | Checksum-validated detectors (emails, IDs, cards, keys), block outbound calls carrying PII, audit **without storing raw matches**. |
 | [`dsh-memo`](./packages/dsh-memo) | Tool-result memoization (TTL + LRU) | Repeated identical tool calls short-circuit with an explanatory cached preview; mutating tools excluded by default. |
 | [`dsh-rate`](./packages/dsh-rate) | 429 backoff, daily token budgets, tool-storm control | Exponential backoff windows + budget watermarks + storm gates; **monitor-first**, enforce is opt-in. |
+| [`dsh-cost-eval`](./packages/dsh-cost-eval) | Quality × cost leaderboard and cost release gates over `dsh-eval` run records | Companion CLI to dsh-eval (not a runner): cost-per-success math, multi-run ranking, CI gate with explicit cost budgets. |
 
 All plugins follow the [dsh plugin contract](#plugin-contract): a cordis-bundle
 row (`cordis.patch.yml`), a schema-validated `Config`, and an `apply(ctx, config)`
@@ -38,6 +39,11 @@ entry point. They are vendored-dependency-free and target `@deepseek-ai/cordis ^
 - **Long-running agents hit rate limits unprepared.** 429 backoff, budget
   watermarks and storm control existed for every framework except dsh.
   `dsh-rate-shield` fills that hole honestly (see its README for scope).
+- **Evaluation forgot about money.** dsh-eval tells you whether an agent
+  passes a benchmark; it never tells you which candidate earns its tokens.
+  `dsh-cost-eval` adds the quality × cost layer: cost-per-success across
+  every candidate run, plus a CI gate so a model swap cannot silently
+  double your bill.
 
 ## Quick start
 
@@ -50,9 +56,13 @@ dsh plugin --profile web add dsh-tool-memo
 dsh plugin --profile web add dsh-rate-shield
 ```
 
-Both plugins ship **disabled** in their bundled config row — the harness keeps
+The bundled plugins ship **disabled** in their config row — the harness keeps
 its default behavior until you opt in. Enable and configure them via a profile
 patch (see each plugin's README and its `cordis.patch.yml` for a commented example).
+
+`dsh-cost-eval` is a standalone CLI (no profile needed): point it at the
+`run.json` records `dsh eval` writes to get a cost-effectiveness leaderboard
+and a CI gate — see [its README](./packages/dsh-cost-eval).
 
 ## Development
 

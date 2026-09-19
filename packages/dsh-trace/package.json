@@ -1,7 +1,7 @@
 {
   "name": "dsh-tracing",
-  "version": "0.1.1",
-  "description": "OpenTelemetry (OTLP/HTTP) + Langfuse trace exporter for DeepSeek Harness \u2014 GenAI semconv, sanitized before send, batched with retry, off by default.",
+  "version": "0.2.0",
+  "description": "Session-event tracing for the DeepSeek Harness: OTLP traces, Langfuse observations, and OpenMeter-style usage-gateway export",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",

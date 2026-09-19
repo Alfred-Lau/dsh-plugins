@@ -1,5 +1,6 @@
 import { LangfuseBackend } from './export/langfuse.js'
 import { OtlpBackend } from './export/otlp.js'
+import { HttpUsageBackend } from './export/usage-gateway.js'
 import { projectSessionEvent } from './event-map.js'
 import { Pipeline } from './pipeline.js'
 import { Config } from './config-schema.js'
