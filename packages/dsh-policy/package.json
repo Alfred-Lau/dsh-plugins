@@ -1,7 +1,7 @@
 {
   "name": "dsh-tool-policy",
   "version": "0.1.1",
-  "description": "Declarative tool-call permission control for DeepSeek Harness — allow/deny/ask rules over tools, paths and commands, fail-closed by default, with JSONL audit log.",
+  "description": "Declarative tool-call permission control for DeepSeek Harness \u2014 allow/deny/ask rules over tools, paths and commands, fail-closed by default, with JSONL audit log.",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -58,7 +58,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "npm run -s build && node --test test/"
+    "test": "npm run -s build && node --test test/*.test.ts"
   },
   "repository": {
     "type": "git",

@@ -1,7 +1,7 @@
 {
   "name": "dsh-tracing",
   "version": "0.1.1",
-  "description": "OpenTelemetry (OTLP/HTTP) + Langfuse trace exporter for DeepSeek Harness — GenAI semconv, sanitized before send, batched with retry, off by default.",
+  "description": "OpenTelemetry (OTLP/HTTP) + Langfuse trace exporter for DeepSeek Harness \u2014 GenAI semconv, sanitized before send, batched with retry, off by default.",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -59,7 +59,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "npm run -s build && node --test test/"
+    "test": "npm run -s build && node --test test/*.test.ts"
   },
   "repository": {
     "type": "git",
