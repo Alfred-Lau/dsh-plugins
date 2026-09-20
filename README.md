@@ -5,7 +5,7 @@ Community plugins for [DeepSeek Harness (dsh)](https://github.com/deepseek-ai/de
 Six plugins, six jobs:
 
 | Plugin | What it does | Key idea |
-| --- | --- | --- |
+| --------- | --- | --- |
 | [`dsh-trace`](./packages/dsh-trace) | Observability: project harness sessions into OpenTelemetry-compatible spans and export them | Ships your data to **your** existing backend (OTLP/HTTP collector or Langfuse). Sanitize-before-send. GenAI semconv aligned. |
 | [`dsh-policy`](./packages/dsh-policy) | Declarative tool-call permission control with an audit trail | Three-dimensional rules (tool / command / path), first-match-wins with priorities, **fail-closed**, JSONL audit log. |
 | [`dsh-pii`](./packages/dsh-pii) | PII detection & exfiltration guard | Checksum-validated detectors (emails, IDs, cards, keys), block outbound calls carrying PII, audit **without storing raw matches**. |
