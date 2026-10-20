@@ -1,0 +1,79 @@
+# =============================================================================
+# agent-hub.patch.yml — dsh-plugins 全家桶推荐配置
+#
+# 使用：
+#   1. 安装后，本文件会被 install.sh 幂等地合并进 <profile>/cordis.patch.yml
+#      （只增改本套件段落，不动你的其它配置）。
+#   2. 也可以手工把这里的内容 COPY 进 dsh profile 的 cordis.patch.yml。
+#
+# 安全提示：五个 bundle 的 enabled 默认 true；dsh-pii-gate 默认 block、
+#   dsh-tool-policy 默认 fail-closed，dsh-rate-shield 默认 enforce —— 都是
+#   "宁可拦、不可漏"的生产护栏。若只想先观望，把对应 enabled 改成 false 或
+#   把 pii/rate 的 mode 改成 audit/monitor 即可。审计日志默认落在各 bundle 的
+#   <cwd>/.dsh-*/audit.jsonl，计入 .gitignore 即可。
+# =============================================================================
+
+# ---- 观测：dsh-tracing（OTLP + 可选 httpUsage 用量网关；httpUsage 需 0.2.0）---
+- id: dsh-tracing
+  match: { name: dsh-tracing }
+  config:
+    enabled: true
+    otlp:
+      endpoint: http://localhost:4318/v1/traces
+    capture: { turns: true, steps: true, tools: true, llm: true }
+    sanitize:
+      enabled: true
+      redactKeys: [api_key, token, secret, password, authorization]
+      truncatePromptChars: 4000
+      truncateCompletionChars: 4000
+    # 需要把用量喂给评测/计费网关时启用（需 dsh-tracing 0.2.0）：
+    # httpUsage:
+    #   endpoint: http://localhost:8080/usage
+    #   mode: usage        # usage=OpenMeter CloudEvents / spans=原始 span JSON
+    #   eventType: deepseek-harness.usage
+    #   eventSource: my-agent
+
+# ---- 安全 A：dsh-tool-policy（工具调用策略，缺省 match 即 ask）---------------
+- id: dsh-policy
+  match: { name: dsh-tool-policy }
+  config:
+    enabled: true
+    failClosed: true
+    defaultDecision: ask
+    audit:
+      enabled: true
+      file: .dsh-policy/audit.jsonl
+
+# ---- 安全 B：dsh-pii-gate（敏感数据外发拦截，默认 block）---------------------
+- id: dsh-pii
+  match: { name: dsh-pii-gate }
+  config:
+    enabled: true
+    mode: block
+    outboundTools: [bash, shell, "http*", "fetch*", "web*", "send*", "mail*", "email*", "upload*", "request*"]
+    exemptTools: []
+    detectors: { email: true, phone_cn: true, phone_intl: true, cn_id: true, credit_card: true, api_key: true, ssn: true, ipv4: false, iban: false }
+    minMatches: 1
+
+# ---- 省钱 A：dsh-tool-memo（重复读/检索返回值记忆，默认 hint）---------------
+- id: dsh-memo
+  match: { name: dsh-tool-memo }
+  config:
+    enabled: true
+    mode: hint                # hint | inject (inject = 实验性，自动回填)
+    defaultTtlMs: 600000      # 10 min
+    perToolTtl:
+      - { tool: read_file, ttlMs: 300000 }
+      - { tool: "search*", ttlMs: 120000 }
+    maxEntries: 256
+
+# ---- 省钱 B + 预热保护：dsh-rate-shield（限流/日预算/退避，默认 enforce）----
+- id: dsh-rate
+  match: { name: dsh-rate-shield }
+  config:
+    enabled: true
+    mode: enforce             # monitor | enforce
+    backoff: { enabled: true, baseMs: 30000, factor: 2, maxMs: 600000 }
+    budget: { dailyTokens: 500000, warnAt: 0.8, criticalAction: log }   # 日预算 0 = off
+    toolStorm: { windowMs: 60000, maxCalls: 0 }                        # 0 = off
+    audit: { enabled: true }
