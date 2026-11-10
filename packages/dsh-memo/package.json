@@ -1,6 +1,6 @@
 {
   "name": "dsh-tool-memo",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Tool-result memoization for DeepSeek Harness — TTL cache over idempotent tool calls; cache hits short-circuit re-execution with an explanatory verdict, LRU-bounded, per-tool TTLs, JSONL audit.",
   "type": "module",
   "main": "lib/index.js",
