@@ -1,6 +1,6 @@
 {
   "name": "dsh-tracing",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Session-event tracing for the DeepSeek Harness: OTLP traces, Langfuse observations, and OpenMeter-style usage-gateway export",
   "type": "module",
   "main": "lib/index.js",
@@ -43,10 +43,14 @@
   ],
   "license": "MIT",
   "peerDependencies": {
-    "@deepseek-ai/cordis": "^4.0.1"
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/schemastery": "^3.18.2"
   },
   "peerDependenciesMeta": {
     "@deepseek-ai/cordis": {
+      "optional": true
+    },
+    "@deepseek-ai/schemastery": {
       "optional": true
     }
   },

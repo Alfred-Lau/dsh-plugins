@@ -1,7 +1,7 @@
 {
   "name": "dsh-tool-memo",
   "version": "0.1.0",
-  "description": "Tool-result memoization for DeepSeek Harness \u2014 TTL cache over idempotent tool calls; cache hits short-circuit re-execution with an explanatory verdict, LRU-bounded, per-tool TTLs, JSONL audit.",
+  "description": "Tool-result memoization for DeepSeek Harness — TTL cache over idempotent tool calls; cache hits short-circuit re-execution with an explanatory verdict, LRU-bounded, per-tool TTLs, JSONL audit.",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -42,10 +42,14 @@
   ],
   "license": "MIT",
   "peerDependencies": {
-    "@deepseek-ai/cordis": "^4.0.1"
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/schemastery": "^3.18.2"
   },
   "peerDependenciesMeta": {
     "@deepseek-ai/cordis": {
+      "optional": true
+    },
+    "@deepseek-ai/schemastery": {
       "optional": true
     }
   },

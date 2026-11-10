@@ -1,7 +1,7 @@
 {
   "name": "dsh-pii-gate",
   "version": "0.1.0",
-  "description": "PII detection & exfiltration guard for DeepSeek Harness \u2014 scans tool arguments and results for personal data (emails, phone numbers, CN IDs, cards, keys), blocks outbound calls carrying PII, JSONL audit without storing raw matches.",
+  "description": "PII detection & exfiltration guard for DeepSeek Harness — scans tool arguments and results for personal data (emails, phone numbers, CN IDs, cards, keys), blocks outbound calls carrying PII, JSONL audit without storing raw matches.",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -43,10 +43,14 @@
   ],
   "license": "MIT",
   "peerDependencies": {
-    "@deepseek-ai/cordis": "^4.0.1"
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/schemastery": "^3.18.2"
   },
   "peerDependenciesMeta": {
     "@deepseek-ai/cordis": {
+      "optional": true
+    },
+    "@deepseek-ai/schemastery": {
       "optional": true
     }
   },
