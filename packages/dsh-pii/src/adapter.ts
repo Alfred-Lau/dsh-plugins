@@ -199,7 +199,10 @@ export function parseToolCall(payload: unknown): ParsedCall | null {
   return {
     tool,
     args,
-    sessionId: firstString(rec(payload, ['sessionId', 'session_id', 'session'])),
+    // `ToolExecution` exposes no `sessionId`; the session lives on `agent.id`.
+    sessionId:
+      firstString(rec(payload, ['sessionId', 'session_id', 'session'])) ??
+      firstString(rec(rec(payload, ['agent']), ['id'])),
   }
 }
 

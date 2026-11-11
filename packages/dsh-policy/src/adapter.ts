@@ -154,7 +154,13 @@ function parseToolCall(exec: unknown): ToolCallInput | null {
   const args =
     exec.arguments ?? exec.args ?? exec.input ??
     (isRecord(exec.call) ? exec.call.args ?? exec.call.input : undefined)
-  const sessionId = firstString(exec.sessionId, exec.session_id, exec.session)
+  const sessionId =
+    firstString(exec.sessionId, exec.session_id, exec.session) ??
+    // `ToolExecution` has no `sessionId` field. The session reaches a listener
+    // only through `agent`, whose `id` *is* the SessionId — so reading
+    // `exec.sessionId` alone yields undefined in the real harness and turns
+    // every ticket rule into a no-op.
+    (isRecord(exec.agent) ? firstString(exec.agent.id) : undefined)
   return { tool, args, sessionId }
 }
 

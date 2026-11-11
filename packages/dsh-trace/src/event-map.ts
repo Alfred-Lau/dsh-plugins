@@ -81,9 +81,168 @@ function phaseOf(t: string, raw: Record<string, unknown>): 'start' | 'end' {
 /**
  * Best-effort projection. Returns null for events this plugin does not model
  * (system prompt nodes, settings, UI events, …) — silently skipped.
+ *
+ * The harness broadcasts `session/event` as `(session, event)`: identity lives
+ * on `session.header.id`, the payload on `event.data`. This module used to take
+ * a single flat object with everything inlined, which meant every real event
+ * failed the `type` check and returned null — the plugin produced no spans at
+ * all against a live harness while its flat fixtures kept passing. Both shapes
+ * are accepted so those fixtures still exercise the mapping logic.
  */
-export function projectSessionEvent(raw: unknown): SessionEventProjection | null {
-  if (!isRecord(raw)) return null
+export function projectSessionEvent(
+  first: unknown,
+  second?: unknown,
+): SessionEventProjection | null {
+  if (isRecord(second) && str(second.type)) return projectBroadcast(first, second)
+  if (isRecord(first) && str(first.type)) return projectFlat(first)
+  return null
+}
+
+/** dsh hands tool arguments over as a JSON *string*; parse it when it is one. */
+function parseJsonish(v: unknown): unknown {
+  if (typeof v !== 'string') return v
+  const s = v.trim()
+  if (!s.startsWith('{') && !s.startsWith('[')) return v
+  try {
+    return JSON.parse(s)
+  } catch {
+    return v
+  }
+}
+
+/** Concatenated text of a dsh content-block array. */
+function textOf(content: unknown): string | undefined {
+  if (typeof content === 'string') return content
+  if (!Array.isArray(content)) return undefined
+  const parts: string[] = []
+  for (const block of content) {
+    if (!isRecord(block)) continue
+    const text = str(block.text)
+    if (text) parts.push(text)
+  }
+  return parts.length > 0 ? parts.join('') : undefined
+}
+
+/**
+ * Project one `session/event` broadcast, given the two arguments the hook
+ * actually receives.
+ */
+function projectBroadcast(
+  session: unknown,
+  event: Record<string, unknown>,
+): SessionEventProjection | null {
+  const type = str(event.type)
+  if (!type) return null
+  const t = type.toLowerCase()
+  const ts = num(event.time) ?? Date.now()
+  const sessionId =
+    str(pick(pick(session, ['header']), ['id'])) ??
+    str(pick(session, ['id'])) ??
+    str(event.sessionId) ??
+    'unknown'
+  const data = isRecord(event.data) ? event.data : {}
+  const turn = num(data.turn)
+  const step = num(data.step)
+
+  if (t === 'tool/call') {
+    const name = str(data.name)
+    if (!name) return null
+    return {
+      sessionId,
+      ts,
+      kind: 'tool',
+      phase: 'start',
+      turn,
+      step,
+      tool: {
+        name,
+        callId: str(data.callId),
+        args: parseJsonish(data.arguments),
+      },
+    }
+  }
+
+  if (t === 'tool/result') {
+    // The result event carries no tool name: the only link back to the start is
+    // the callId buried in `message.source` (or the tool-result block itself),
+    // which is why the collector keys tool spans on callId.
+    const message = isRecord(data.message) ? data.message : {}
+    const source = isRecord(message.source) ? message.source : {}
+    const block = Array.isArray(message.content)
+      ? message.content.find((c) => isRecord(c) && c.type === 'tool-result')
+      : undefined
+    const body = isRecord(block) ? block : {}
+    const text = textOf(body.content)
+    const isError = body.isError === true
+    return {
+      sessionId,
+      ts,
+      kind: 'tool',
+      phase: 'end',
+      turn,
+      step,
+      tool: {
+        name: '',
+        callId: str(body.toolCallId, source.callId),
+        result: text,
+        error: isError ? text : undefined,
+      },
+    }
+  }
+
+  if (t === 'assistant/message') {
+    // A completed model response. `request/context` announced the model before
+    // the call; the usage lands here. Phase `end` merges into the open llm span
+    // when there is one and stands alone when there is not — and it has to be
+    // self-sufficient, because only the first step of a turn has a matching
+    // `request/context`. The provider/model live under `message.source`.
+    const usage = projectUsage(data.usage)
+    const message = isRecord(data.message) ? data.message : {}
+    const source = isRecord(message.source) ? message.source : {}
+    return {
+      sessionId,
+      ts,
+      kind: 'llm',
+      phase: 'end',
+      turn,
+      step,
+      llm: {
+        provider: str(data.provider, source.provider),
+        model: str(data.model, message.model, source.model),
+        inputTokens: usage?.inputTokens,
+        outputTokens: usage?.outputTokens,
+        cacheReadTokens: usage?.cacheReadTokens,
+        reasoningTokens: usage?.reasoningTokens,
+        completion: message.content,
+      },
+    }
+  }
+
+  if (t === 'request/context') {
+    return {
+      sessionId,
+      ts,
+      kind: 'llm',
+      phase: 'start',
+      turn,
+      step,
+      llm: { provider: str(data.provider), model: str(data.model) },
+    }
+  }
+
+  if (t === 'turn/start' || t === 'turn/end') {
+    return { sessionId, ts, kind: 'turn', phase: t === 'turn/start' ? 'start' : 'end', turn }
+  }
+
+  if (t === 'step/start' || t === 'step/end') {
+    return { sessionId, ts, kind: 'step', phase: t === 'step/start' ? 'start' : 'end', turn, step }
+  }
+
+  return null
+}
+
+/** Flat shape: one object carrying the type and the payload together. */
+function projectFlat(raw: Record<string, unknown>): SessionEventProjection | null {
   const type = str(raw.type, raw.event, raw.kind)
   if (!type) return null
   const t = type.toLowerCase()

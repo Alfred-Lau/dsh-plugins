@@ -230,7 +230,9 @@ export class SpanCollector {
       )
       return
     }
-    pending.tool = { ...pending.tool, ...tool }
+    // A `tool/result` event carries no tool name — only the callId — so a plain
+    // spread would blank out the name the start event already gave this span.
+    pending.tool = { ...pending.tool, ...tool, name: tool.name || pending.tool?.name || '' }
     const status = pending.tool?.error ? 'error' : 'ok'
     this.complete(this.pendingTool, key, pending, p.ts, status)
   }

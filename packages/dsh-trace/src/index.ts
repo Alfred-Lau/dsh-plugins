@@ -55,8 +55,12 @@ export function apply(ctx: Context, config: TraceConfig): void {
   // the Session-id convention otherwise. Undefined = tagging disabled.
   const scopeOf = makeScopeResolver(ctx, config.ticket ?? {})
 
-  ctx.on('session/event', (raw) => {
-    const projection = projectSessionEvent(raw)
+  // `session/event` is a broadcast, not a waterfall: the listener gets
+  // `(session, event)` and its return value is ignored. Reading only the first
+  // argument (as this used to) yields the Session object, whose `type` is
+  // undefined — so every event was dropped.
+  ctx.on('session/event', (session: unknown, event: unknown) => {
+    const projection = projectSessionEvent(session, event)
     if (!projection) return
     if (scopeOf) {
       const scope = scopeOf(projection.sessionId)
@@ -65,9 +69,14 @@ export function apply(ctx: Context, config: TraceConfig): void {
     pipeline.enqueue(projection)
   })
 
-  // Best-effort flush kicks from the harness; never block the caller.
+  // `session/flush` is a log-durability kick, not an end-of-life signal: the
+  // harness fires it dozens of times per turn (72 times across 10 tool calls in
+  // one probe run), including *between* a tool/call and its tool/result. Closing
+  // dangling spans here therefore severed every in-flight tool span — the start
+  // was emitted early and the result arrived with nothing to pair against.
+  // Only ship what has already completed.
   ctx.on('session/flush', () => {
-    void pipeline.flushAndClose('session/flush')
+    void pipeline.flushAll('session/flush')
   })
   ctx.on('session/disposed', () => {
     void pipeline.flushAndClose('session/disposed')

@@ -223,14 +223,33 @@ export function parseToolCall(payload: unknown): ParsedCall | null {
   const rec = payload as Record<string, unknown>
   const tool = firstString(rec.tool, rec.toolName, rec.tool_name, rec.name)
   if (!tool) return null
-  return { tool, args: rec.args ?? rec.input ?? rec.arguments, sessionId: firstString(rec.sessionId, rec.session_id, rec.session) }
+  return {
+    tool,
+    args: rec.args ?? rec.input ?? rec.arguments,
+    // `ToolExecution` exposes no `sessionId`; the session lives on `agent.id`.
+    sessionId: firstString(rec.sessionId, rec.session_id, rec.session) ?? agentIdOf(rec),
+  }
 }
 
-/** Session id of a raw session/event payload, when present. */
+/**
+ * Session id of a raw payload, when present.
+ *
+ * Two shapes reach this: a `session/event` broadcast hands over the Session
+ * object itself (whose `id` is the SessionId), and a `tools/*` payload carries
+ * an `agent` whose `id` is the same value. Neither has a `sessionId` field, so
+ * a listener that only read that would see `undefined` on every real call.
+ */
 export function sessionIdOf(raw: unknown): string | undefined {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return undefined
   const rec = raw as Record<string, unknown>
-  return firstString(rec.sessionId, rec.session_id, rec.session)
+  return firstString(rec.sessionId, rec.session_id, rec.session) ?? agentIdOf(rec) ?? firstString(rec.id)
+}
+
+/** The SessionId carried by an `agent` field, if any. */
+function agentIdOf(rec: Record<string, unknown>): string | undefined {
+  const agent = rec.agent
+  if (typeof agent !== 'object' || agent === null) return undefined
+  return firstString((agent as Record<string, unknown>).id)
 }
 
 function firstString(...vals: unknown[]): string | undefined {

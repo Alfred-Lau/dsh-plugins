@@ -201,7 +201,10 @@ export function parseToolCall(payload: unknown): ParsedCall | null {
   if (!tool) return null
   const call = typeof rec.call === 'object' && rec.call !== null ? (rec.call as Record<string, unknown>) : undefined
   const args = rec.args ?? rec.input ?? rec.arguments ?? rec.params ?? call?.args ?? call?.input
-  return { tool, args, sessionId: firstString(rec.sessionId, rec.session_id, rec.session) }
+  // `ToolExecution` exposes no `sessionId`; the session lives on `agent.id`.
+  const agent = typeof rec.agent === 'object' && rec.agent !== null ? (rec.agent as Record<string, unknown>) : undefined
+  const sessionId = firstString(rec.sessionId, rec.session_id, rec.session) ?? firstString(agent?.id)
+  return { tool, args, sessionId }
 }
 
 /**
