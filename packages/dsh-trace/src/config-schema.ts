@@ -45,6 +45,12 @@ export const Config: Schema<TraceConfig> = Schema.object({
   metadata: Schema.object({
     sessionId: Schema.boolean().default(true),
     model: Schema.boolean().default(true),
+    ticket: Schema.boolean().default(true),
+  }),
+  ticket: Schema.object({
+    enabled: Schema.boolean().default(true),
+    masterId: Schema.string().default(''),
+    workerPrefix: Schema.string().default('worker-'),
   }),
   sanitize: Schema.object({
     enabled: Schema.boolean().default(true),

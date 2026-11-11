@@ -44,6 +44,16 @@ function baseBody(span: Span): Record<string, unknown> {
   }
 }
 
+/**
+ * Trace-level tags: the configured ones plus the dsh-superagent ticket, so a
+ * whole ticket's turns can be filtered in one click.
+ */
+function langfuseTags(span: Span, cfg: LangfuseConfig): string[] | undefined {
+  const tags = [...(cfg.tags ?? [])]
+  if (span.ticket) tags.push(`dsh-ticket:${span.ticket.ticketId ?? 'router'}`)
+  return tags.length > 0 ? tags : undefined
+}
+
 export function buildLangfuseBatch(spans: Span[], cfg: LangfuseConfig): IngestionEnvelope[] {
   const events: IngestionEnvelope[] = []
 
@@ -60,7 +70,7 @@ export function buildLangfuseBatch(spans: Span[], cfg: LangfuseConfig): Ingestio
           name: span.name,
           session_id: span.sessionId,
           release: cfg.release || undefined,
-          tags: cfg.tags?.length ? [...cfg.tags] : undefined,
+          tags: langfuseTags(span, cfg),
           metadata: {
             dsh_kind: span.kind,
             dsh_turn: span.turn,

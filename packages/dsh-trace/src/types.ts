@@ -1,3 +1,5 @@
+import type { TicketScope } from './ticket.js'
+
 /** dsh-trace configuration shape (mirrors the schema in config-schema.ts). */
 export interface OtlpConfig {
   /** OTLP/HTTP base URL; `/v1/traces` is appended. */
@@ -48,8 +50,19 @@ export interface LlmCaptureConfig {
   completion?: boolean
 }
 
+export interface TicketScopeConfig {
+  /** Tag spans with the dsh-superagent ticket. Default true. */
+  enabled?: boolean
+  /** Router Session id; without it only worker Sessions resolve. */
+  masterId?: string
+  /** Worker Session-id prefix (dsh-superagent uses `worker-`). */
+  workerPrefix?: string
+}
+
 export interface MetadataConfig {
   sessionId?: boolean
+  /** Emit `dsh.ticket.*` attributes. Default true. */
+  ticket?: boolean
   model?: boolean
 }
 
@@ -93,6 +106,8 @@ export interface TraceConfig {
   capture?: CaptureConfig
   llm?: LlmCaptureConfig
   metadata?: MetadataConfig
+  /** dsh-superagent ticket tagging; on unless explicitly disabled. */
+  ticket?: TicketScopeConfig
   sanitize?: SanitizeConfig
   batch?: BatchConfig
   retry?: RetryConfig
@@ -106,6 +121,8 @@ export interface TraceConfig {
  */
 export interface SessionEventProjection {
   sessionId: string
+  /** dsh-superagent ticket scope, when the Session belongs to one. */
+  ticket?: TicketScope
   /** Event timestamp, epoch ms. */
   ts: number
   kind: 'turn' | 'step' | 'tool' | 'llm'
@@ -144,6 +161,7 @@ export interface Span {
   name: string
   kind: SessionEventProjection['kind']
   sessionId: string
+  ticket?: TicketScope
   turn?: number
   /** epoch ms */
   startTime: number

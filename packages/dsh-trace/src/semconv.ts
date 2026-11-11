@@ -28,6 +28,13 @@ export const ATTR = {
 
 export const DSH_ATTR = {
   sessionId: 'dsh.trace.session_id',
+  /**
+   * dsh-superagent ticket scope. The ticket id comes from the Session naming
+   * Super-agent already uses (`worker-<ticketId>`), so spans of one ticket
+   * share a tag without any Super-agent change.
+   */
+  ticketId: 'dsh.ticket.id',
+  ticketRole: 'dsh.ticket.role',
   turn: 'dsh.trace.turn',
   step: 'dsh.trace.step',
   toolCallId: 'dsh.trace.tool_call_id',

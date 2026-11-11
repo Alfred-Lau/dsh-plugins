@@ -4,6 +4,7 @@ import { HttpUsageBackend } from './export/usage-gateway.js'
 import { projectSessionEvent } from './event-map.js'
 import { Pipeline } from './pipeline.js'
 import { Config } from './config-schema.js'
+import { makeScopeResolver } from './ticket.js'
 import type { Context } from '@deepseek-ai/cordis'
 import type { TraceBackend } from './pipeline.js'
 import type { TraceConfig } from './types.js'
@@ -47,9 +48,18 @@ export function apply(ctx: Context, config: TraceConfig): void {
   const pipeline = new Pipeline({ backends, config, logger: ctx.logger })
   pipeline.start()
 
+  // Ticket tagging: the `ticket` service when dsh-ticket-context is loaded,
+  // the Session-id convention otherwise. Undefined = tagging disabled.
+  const scopeOf = makeScopeResolver(ctx, config.ticket ?? {})
+
   ctx.on('session/event', (raw) => {
     const projection = projectSessionEvent(raw)
-    if (projection) pipeline.enqueue(projection)
+    if (!projection) return
+    if (scopeOf) {
+      const scope = scopeOf(projection.sessionId)
+      if (scope) projection.ticket = scope
+    }
+    pipeline.enqueue(projection)
   })
 
   // Best-effort flush kicks from the harness; never block the caller.
@@ -60,5 +70,8 @@ export function apply(ctx: Context, config: TraceConfig): void {
     void pipeline.flushAndClose('session/disposed')
   })
 
-  ctx.logger.info(`[dsh-trace] exporting to: ${backends.map((b) => b.name).join(', ')}`)
+  ctx.logger.info(
+    `[dsh-trace] exporting to: ${backends.map((b) => b.name).join(', ')}` +
+      (scopeOf ? '; ticket tagging on (dsh.ticket.*)' : '; ticket tagging off'),
+  )
 }

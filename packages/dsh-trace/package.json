@@ -1,7 +1,7 @@
 {
   "name": "dsh-tracing",
-  "version": "0.2.1",
-  "description": "Session-event tracing for the DeepSeek Harness: OTLP traces, Langfuse observations, and OpenMeter-style usage-gateway export",
+  "version": "0.3.0",
+  "description": "Session-event tracing for the DeepSeek Harness: OTLP traces, Langfuse observations, and OpenMeter-style usage-gateway export. Tags spans with the dsh-superagent ticket (dsh.ticket.id / dsh.ticket.role).",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",

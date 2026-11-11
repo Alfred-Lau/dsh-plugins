@@ -96,6 +96,32 @@ flat payloads all tolerated):
 Events this plugin does not model are silently skipped. Unpaired ends still emit
 a best-effort span; the first `end` for a session closes any dangling parents.
 
+## Ticket tagging (dsh-superagent)
+
+If the Session belongs to a [`dsh-superagent`](https://github.com/deepseek-ai/dsh-superagent-prototype)
+ticket, every span gets the ticket:
+
+| Attribute | Value |
+| --- | --- |
+| `dsh.ticket.id` | The ticket id, e.g. `t-42` |
+| `dsh.ticket.role` | `worker` or `router` |
+
+The id comes from the Session naming Super-agent already uses
+(`worker-<ticketId>`), so nothing has to be patched. Install
+[`dsh-ticket-context`](https://www.npmjs.com/package/dsh-ticket-context) and the
+plugin uses its configured `masterId` / prefix; without it, `ticket.masterId`
+in this plugin's own config is used and only workers resolve. Langfuse traces
+also get a `dsh-ticket:<id>` tag, so one ticket's whole run filters in one click.
+
+```yaml
+ticket:
+  enabled: true
+  masterId: ""        # router Session id; empty = workers only
+  workerPrefix: "worker-"
+```
+
+Disable with `metadata.ticket: false`.
+
 ## Known limitations (v0.1)
 
 - Session events are shaped best-effort; harness payloads may evolve and the

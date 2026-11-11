@@ -400,6 +400,13 @@ export class SpanCollector {
       errorMessage,
       attributes: { ...pending.attributes },
     }
+    // Recover the ticket scope from the attributes addMetadata() wrote, so
+    // backends can group by ticket without re-deriving it from the Session id.
+    const ticketRole = pending.attributes[DSH_ATTR.ticketRole]
+    if (ticketRole === 'router' || ticketRole === 'worker') {
+      const ticketId = pending.attributes[DSH_ATTR.ticketId]
+      span.ticket = { role: ticketRole, ...(typeof ticketId === 'string' ? { ticketId } : {}) }
+    }
     // Final attribute sanitization pass (attribute budget applies everywhere).
     const sanitizer = this.opts.sanitizer
     for (const k of Object.keys(span.attributes)) {
@@ -412,6 +419,10 @@ export class SpanCollector {
   private addMetadata(attributes: Record<string, AttrValue>, p: SessionEventProjection): void {
     const cfg = this.opts.config
     if (cfg.metadata?.sessionId !== false) attributes[DSH_ATTR.sessionId] = p.sessionId
+    if (cfg.metadata?.ticket !== false && p.ticket) {
+      attributes[DSH_ATTR.ticketRole] = p.ticket.role
+      if (p.ticket.ticketId) attributes[DSH_ATTR.ticketId] = p.ticket.ticketId
+    }
   }
 
   private currentTurn(p: SessionEventProjection): number | undefined {
