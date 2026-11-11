@@ -42,7 +42,12 @@ export interface RateDeps {
 }
 
 export function attachRateShield(ctx: {
-  on(event: string, listener: (...args: any[]) => unknown): void
+  // cordis 4.1 turned `on` into an overload over a strongly-typed `Events`
+  // map, so `name: string` is no longer assignable to `keyof Events` and every
+  // narrower structural type stops matching `Context`. Spelling the method as
+  // `any[]` is the one form 4.0 and 4.1 both accept; the listeners themselves
+  // stay typed at the registration site below.
+  on(...args: any[]): any
 }, deps: RateDeps): void {
   const { config, meter, backoff, audit, logger, ticketScope } = deps
   const mode: RateMode = config.mode ?? 'monitor'

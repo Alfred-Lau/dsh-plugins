@@ -54,10 +54,10 @@
     }
   },
   "devDependencies": {
+    "@deepseek-ai/cordis": "4.1.0",
+    "@deepseek-ai/schemastery": "3.19.0",
     "@types/node": "^22.10.0",
-    "typescript": "^5.6.0",
-    "@deepseek-ai/cordis": "4.0.2",
-    "@deepseek-ai/schemastery": "3.18.2"
+    "typescript": "^5.6.0"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
