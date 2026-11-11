@@ -40,8 +40,11 @@ export function apply(ctx: Context, config: TraceConfig): void {
   if (config.langfuse?.publicKey && config.langfuse?.secretKey) {
     backends.push(new LangfuseBackend(config.langfuse, { logger: ctx.logger, retry: config.retry, maxQueueRecords: config.batch?.maxQueueRecords }))
   }
+  if (config.httpUsage?.endpoint) {
+    backends.push(new HttpUsageBackend(config.httpUsage, { logger: ctx.logger, retry: config.retry, maxQueueRecords: config.batch?.maxQueueRecords }))
+  }
   if (backends.length === 0) {
-    ctx.logger.warn('[dsh-trace] enabled=true but no backend configured (otlp/langfuse); nothing will be exported.')
+    ctx.logger.warn('[dsh-trace] enabled=true but no backend configured (otlp/langfuse/httpUsage); nothing will be exported.')
     return
   }
 

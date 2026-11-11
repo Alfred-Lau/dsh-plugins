@@ -41,7 +41,7 @@ export interface RateDeps {
 }
 
 export function attachRateShield(ctx: {
-  on(event: string, listener: (payload: unknown) => unknown): void
+  on(event: string, listener: (payload: unknown, next?: () => unknown) => unknown): void
 }, deps: RateDeps): void {
   const { config, meter, backoff, audit, logger, ticketScope } = deps
   const mode: RateMode = config.mode ?? 'monitor'
@@ -106,9 +106,13 @@ export function attachRateShield(ctx: {
     }
   })
 
-  ctx.on('tools/pre-execute', (payload: unknown): RateVerdict | undefined => {
+  // Cordis waterfall: staying silent means "no objection", which must be
+  // expressed by calling `next()` — returning `undefined` would end the chain
+  // and starve every plugin registered after this one.
+  ctx.on('tools/pre-execute', (payload: unknown, next?: () => unknown): RateVerdict | undefined => {
+    const pass = () => next?.() as RateVerdict | undefined
     const call = parseToolCall(payload)
-    if (!call) return undefined
+    if (!call) return pass()
     const now = Date.now()
     const scope = ticketScope?.scopeOf(call.sessionId)
     const bucket = bucketOf(scope)
@@ -198,7 +202,7 @@ export function attachRateShield(ctx: {
       }
     }
 
-    return undefined
+    return pass()
   })
 }
 

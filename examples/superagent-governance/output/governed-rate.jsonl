@@ -1,0 +1,8 @@
+{"event":"llm_usage","tokens":192000,"tokens_today":192000,"ticket_id":"t-1042","ticket_tokens_today":192000,"ts":"2026-11-11T01:42:23.893Z","rate_version":"0.1.0"}
+{"event":"budget_warn","ticket_id":"t-1042","ticket_tokens_today":192000,"reason":"192000/200000","ts":"2026-11-11T01:42:23.894Z","rate_version":"0.1.0"}
+{"event":"storm_deny","tool":"bash","window_calls":5,"ticket_id":"t-1042","ticket_role":"worker","ts":"2026-11-11T01:42:23.896Z","rate_version":"0.1.0"}
+{"event":"llm_usage","tokens":65000,"tokens_today":257000,"ticket_id":"t-1043","ticket_tokens_today":65000,"ts":"2026-11-11T01:42:23.896Z","rate_version":"0.1.0"}
+{"event":"llm_usage","tokens":280000,"tokens_today":537000,"ticket_id":"t-1044","ticket_tokens_today":280000,"ts":"2026-11-11T01:42:23.897Z","rate_version":"0.1.0"}
+{"event":"budget_warn","ticket_id":"t-1044","ticket_tokens_today":280000,"reason":"280000/200000","ts":"2026-11-11T01:42:23.897Z","rate_version":"0.1.0"}
+{"event":"budget_deny","tool":"bash","ticket_tokens_today":280000,"ticket_id":"t-1044","ticket_role":"worker","ts":"2026-11-11T01:42:23.897Z","rate_version":"0.1.0"}
+{"event":"llm_usage","tokens":22000,"tokens_today":559000,"ticket_id":"router","ticket_tokens_today":22000,"ts":"2026-11-11T01:42:23.898Z","rate_version":"0.1.0"}

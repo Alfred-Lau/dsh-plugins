@@ -1,0 +1,14 @@
+{"event":"miss","tool":"read","key":"5bee5ba73a62108a82ea8101","session_id":"worker-t-1042","bucket":"ticket:t-1042","ts":"2026-11-11T01:42:23.894Z","memo_version":"0.1.0"}
+{"event":"store","tool":"read","key":"5bee5ba73a62108a82ea8101","session_id":"worker-t-1042","reason":"ttl=600000ms","bucket":"ticket:t-1042","ts":"2026-11-11T01:42:23.895Z","memo_version":"0.1.0"}
+{"event":"hit","tool":"read","key":"5bee5ba73a62108a82ea8101","session_id":"worker-t-1042","age_ms":0,"bucket":"ticket:t-1042","ts":"2026-11-11T01:42:23.896Z","memo_version":"0.1.0"}
+{"event":"skip","tool":"bash","key":"-","session_id":"worker-t-1042","reason":"tool not cacheable","ts":"2026-11-11T01:42:23.896Z","memo_version":"0.1.0"}
+{"event":"skip","tool":"bash","key":"-","session_id":"worker-t-1042","reason":"tool not cacheable","ts":"2026-11-11T01:42:23.896Z","memo_version":"0.1.0"}
+{"event":"skip","tool":"bash","key":"-","session_id":"worker-t-1042","reason":"tool not cacheable","ts":"2026-11-11T01:42:23.896Z","memo_version":"0.1.0"}
+{"event":"skip","tool":"bash","key":"-","session_id":"worker-t-1042","reason":"tool not cacheable","ts":"2026-11-11T01:42:23.896Z","memo_version":"0.1.0"}
+{"event":"miss","tool":"read","key":"5c5419a54ddc3948f8a44b6c","session_id":"worker-t-1043","bucket":"ticket:t-1043","ts":"2026-11-11T01:42:23.897Z","memo_version":"0.1.0"}
+{"event":"store","tool":"read","key":"5c5419a54ddc3948f8a44b6c","session_id":"worker-t-1043","reason":"ttl=600000ms","bucket":"ticket:t-1043","ts":"2026-11-11T01:42:23.897Z","memo_version":"0.1.0"}
+{"event":"skip","tool":"bash","key":"-","session_id":"worker-t-1043","reason":"tool not cacheable","ts":"2026-11-11T01:42:23.897Z","memo_version":"0.1.0"}
+{"event":"skip","tool":"bash","key":"-","session_id":"worker-t-1043","reason":"tool not cacheable","ts":"2026-11-11T01:42:23.897Z","memo_version":"0.1.0"}
+{"event":"miss","tool":"read","key":"4bf40e511ad7ad0d45df7c4e","session_id":"worker-t-1044","bucket":"ticket:t-1044","ts":"2026-11-11T01:42:23.897Z","memo_version":"0.1.0"}
+{"event":"store","tool":"read","key":"4bf40e511ad7ad0d45df7c4e","session_id":"worker-t-1044","reason":"ttl=600000ms","bucket":"ticket:t-1044","ts":"2026-11-11T01:42:23.897Z","memo_version":"0.1.0"}
+{"event":"skip","tool":"bash","key":"-","session_id":"worker-t-1044","reason":"tool not cacheable","ts":"2026-11-11T01:42:23.897Z","memo_version":"0.1.0"}

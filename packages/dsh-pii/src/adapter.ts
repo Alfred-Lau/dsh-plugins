@@ -33,10 +33,14 @@ export interface PiiGateDeps {
 }
 
 export function attachPiiGate(ctx: {
-  on(event: string, listener: (payload: unknown) => unknown): void
+  on(event: string, listener: (payload: unknown, next?: () => unknown) => unknown): void
 }, deps: PiiGateDeps): void {
   const { config, detector, audit, logger, ticketScope } = deps
-  const outbound = compileGlobs(config.outboundTools ?? DEFAULT_OUTBOUND)
+  // Same empty-array trap as the per-ticket rules: schemastery materialises an
+  // absent array as `[]`, and `[] ?? DEFAULT_OUTBOUND` would leave the global
+  // outbound set empty, so nothing would ever be considered outbound.
+  const outboundSource = config.outboundTools && config.outboundTools.length > 0 ? config.outboundTools : DEFAULT_OUTBOUND
+  const outbound = compileGlobs(outboundSource)
   const exempt = compileGlobs(config.exemptTools ?? [])
   const minMatches = Math.max(1, config.minMatches ?? 1)
   const blockMode = config.mode === 'block'
@@ -44,7 +48,10 @@ export function attachPiiGate(ctx: {
   // Per-ticket overrides, compiled once per distinct rule.
   const ruleOutbound = new Map<object, RegExp[]>()
   const outboundFor = (rule: { outboundTools?: string[] } | undefined): RegExp[] => {
-    if (!rule?.outboundTools) return outbound
+    // An empty array means "not configured", not "match nothing": schemastery
+    // fills an absent `outboundTools` with `[]`, and a rule that only sets
+    // `mode` must still inherit the global tool set.
+    if (!rule?.outboundTools || rule.outboundTools.length === 0) return outbound
     let compiled = ruleOutbound.get(rule)
     if (!compiled) {
       compiled = compileGlobs(rule.outboundTools)
@@ -53,13 +60,17 @@ export function attachPiiGate(ctx: {
     return compiled
   }
 
-  ctx.on('tools/pre-execute', (payload: unknown): PiiVerdict | undefined => {
+  // Cordis waterfall: a listener that has no objection must call `next()` so the
+  // remaining governance plugins still get a look at the call. Returning
+  // `undefined` would terminate the chain.
+  ctx.on('tools/pre-execute', (payload: unknown, next?: () => unknown): PiiVerdict | undefined => {
+    const pass = () => next?.() as PiiVerdict | undefined
     const call = parseToolCall(payload)
     if (!call) {
       logger.debug('[dsh-pii-gate] pre-execute payload not recognized; letting the pipeline continue')
-      return undefined
+      return pass()
     }
-    if (exempt.some((re) => re.test(call.tool))) return undefined
+    if (exempt.some((re) => re.test(call.tool))) return pass()
 
     // A ticket may tighten (or relax) the global policy: a ticket working on a
     // public PR can force `block` while the rest of the run stays observe-only.
@@ -100,7 +111,7 @@ export function attachPiiGate(ctx: {
         ruleId: rule ? `pii-block:ticket:${rule.match}` : 'pii-block',
       }
     }
-    return undefined
+    return pass()
   })
 
   ctx.on('tools/post-execute', (payload: unknown) => {

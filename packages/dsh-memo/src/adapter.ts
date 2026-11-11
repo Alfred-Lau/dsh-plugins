@@ -59,10 +59,14 @@ export const DEFAULT_EXCLUDE_TOOLS = [
 ]
 
 export function attachMemo(ctx: {
-  on(event: string, listener: (payload: unknown) => unknown): void
+  on(event: string, listener: (payload: unknown, next?: () => unknown) => unknown): void
 }, deps: MemoDeps): void {
   const { config, store, audit, logger, ticketScope } = deps
-  const exclude = (config.excludeTools ?? DEFAULT_EXCLUDE_TOOLS).map(compileGlob)
+  // schemastery fills an absent array with `[]`, so `??` would silently turn
+  // "not configured" into "nothing excluded" — which would cache `bash` and
+  // hand a stale test result to the next call. Empty means unset here.
+  const excludeSource = config.excludeTools && config.excludeTools.length > 0 ? config.excludeTools : DEFAULT_EXCLUDE_TOOLS
+  const exclude = excludeSource.map(compileGlob)
   const include = (config.includeTools ?? []).map(compileGlob)
   const freshFlag = config.freshFlag || '_memoFresh'
   const injectMode = config.mode === 'inject'
@@ -73,16 +77,22 @@ export function attachMemo(ctx: {
     return true
   }
 
-  ctx.on('tools/pre-execute', (payload: unknown): MemoVerdict | undefined => {
+  // `tools/pre-execute` is a Cordis waterfall: each listener owns the right to
+  // speak, and must call `next()` to hand the call to the next listener. A
+  // memo miss is not a verdict, it is "no opinion" — so it passes the chain on
+  // instead of returning `undefined`, which would end the chain here and hide
+  // every governance plugin registered after this one.
+  ctx.on('tools/pre-execute', (payload: unknown, next?: () => unknown): MemoVerdict | undefined => {
+    const pass = () => next?.() as MemoVerdict | undefined
     const call = parseToolCall(payload)
-    if (!call) return undefined
+    if (!call) return pass()
     if (!cacheable(call.tool)) {
       audit.log({ event: 'skip', tool: call.tool, key: '-', session_id: call.sessionId, reason: 'tool not cacheable' })
-      return undefined
+      return pass()
     }
     if (hasFreshFlag(call.args, freshFlag)) {
       audit.log({ event: 'skip', tool: call.tool, key: '-', session_id: call.sessionId, reason: `fresh flag '${freshFlag}' set` })
-      return undefined
+      return pass()
     }
     const now = Date.now()
     const bucket = ticketScope?.bucketOf(call.sessionId) ?? ''
@@ -95,7 +105,7 @@ export function attachMemo(ctx: {
         session_id: call.sessionId,
         ...(bucket ? { bucket } : {}),
       })
-      return undefined
+      return pass()
     }
     const ageMs = now - entry.storedAt
     audit.log({ event: 'hit', tool: call.tool, key: entry.key, session_id: call.sessionId, age_ms: ageMs, ...(bucket ? { bucket } : {}) })

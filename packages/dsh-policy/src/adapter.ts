@@ -36,13 +36,17 @@ export interface PolicyVerdict {
 export type TicketGate = (call: ToolCallInput) => TicketDenyVerdict | undefined
 
 export function attachPolicy(ctx: {
-  on(event: string, listener: (payload: unknown) => unknown): void
+  on(event: string, listener: (payload: unknown, next?: () => unknown) => unknown): void
 }, evaluator: PolicyEvaluator, audit: AuditLogger, logger: LoggerService, ticketGate?: TicketGate): void {
-  ctx.on('tools/pre-execute', (payload: unknown): PolicyVerdict | undefined => {
+  // Cordis waterfall: `allow` here means "this layer has no objection", not
+  // "the call is approved". The chain is handed to `next()` so plugins
+  // registered later (or the harness's own default handler) still decide.
+  ctx.on('tools/pre-execute', (payload: unknown, next?: () => unknown): PolicyVerdict | undefined => {
+    const pass = () => (next?.() ?? undefined) as PolicyVerdict | undefined
     const call = parseToolCall(payload)
     if (!call) {
       logger.debug('[dsh-policy] pre-execute payload not recognized; letting the pipeline continue')
-      return undefined
+      return pass()
     }
 
     // Ticket rules run first: a ticket's deny list is never softened by a
@@ -85,7 +89,9 @@ export function attachPolicy(ctx: {
     })
     switch (decision.decision) {
       case 'allow':
-        return { decision: 'allow', ruleId: decision.ruleId }
+        // Pass the chain on; fall back to our own allow verdict when this is
+        // the only plugin in the pipeline.
+        return pass() ?? { decision: 'allow', ruleId: decision.ruleId }
       case 'deny':
         return {
           decision: 'deny',

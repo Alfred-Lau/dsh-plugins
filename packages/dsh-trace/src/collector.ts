@@ -271,20 +271,31 @@ export class SpanCollector {
     const pending = [...this.pendingLlm.entries()].find(
       ([, v]) => v.sessionId === p.sessionId,
     )?.[1]
-    const target =
-      pending ??
-      ({
+    let target = pending
+    if (!target) {
+      // Standalone emit (an end event with no matching start): build the span
+      // here. `addMetadata` must run on this path too — it is the only place
+      // `dsh.session.id` and `dsh.ticket.*` get written, and a session that
+      // only reports completions would otherwise lose its ticket tag.
+      const attributes: Record<string, AttrValue> = {
+        [ATTR.operation]: OP.chat,
+        [ATTR.requestModel]: llm.model ?? 'unknown',
+      }
+      if (turn !== undefined) attributes[DSH_ATTR.turn] = turn
+      this.addMetadata(attributes, p)
+      target = {
         spanId: this.newSpanId(),
         traceId: parent?.traceId ?? this.traceIdFor(p.sessionId, turn ?? 0),
         parentSpanId: parent?.spanId,
         name: spanNameForLlm(llm.model ?? 'unknown'),
-        kind: 'llm' as const,
+        kind: 'llm',
         turn,
         sessionId: p.sessionId,
         startTime: p.ts - (llm.durationMs ?? 0),
-        attributes: { [ATTR.operation]: OP.chat, [ATTR.requestModel]: llm.model ?? 'unknown' } as Record<string, AttrValue>,
+        attributes,
         llm: {},
-      } satisfies Pending)
+      }
+    }
     target.llm = { ...target.llm, ...llm }
     if (llm.model) target.attributes[ATTR.requestModel] = llm.model
     if (llm.provider) target.attributes[ATTR.provider] = llm.provider
