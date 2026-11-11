@@ -5,3 +5,12 @@ lib/
 coverage/
 .DS_Store
 dist/
+
+# Example runs write their transcripts and audit logs here; they are
+# reproducible by re-running the script, so they do not belong in git.
+output/
+*.log
+
+# Local scratch scripts used while debugging (they tend to hardcode
+# machine-specific absolute paths).
+probe*.mjs
