@@ -55,13 +55,15 @@ measured rather than asserted:
 
 | | bare | governed |
 | --- | --- | --- |
-| tool calls executed | 11 | 6 |
+| tool calls attempted | 11 | 11 |
+| calls executed | 11 | 6 |
 | calls refused | 0 | 5 (memo ×1, policy ×1, storm ×1, PII ×1, budget ×1) |
-| spans exported | 15 | 10 |
-| spans carrying a ticket id | 0 | 10 |
+| spans exported | 10 | 10 |
+| tickets carrying a scope | 0 | 4 |
 
-The governed pass exports *fewer* spans on purpose: a call that never executes
-never produces a span. The five refused calls cost nothing and pollute nothing.
+The governed pass *executes* five fewer calls — a call that never runs never
+costs a token and never pollutes the log. Refusals do not reduce the span count:
+the attempt is still an event worth observing, which is the point.
 
 The script is a replay, not a live model run — recorded session events are fed
 through the real plugins, so every number above comes out of the plugins' own
