@@ -46,6 +46,28 @@ entry point. They are vendored-dependency-free and target `@deepseek-ai/cordis ^
   every candidate run, plus a CI gate so a model swap cannot silently
   double your bill.
 
+## See them run together
+
+[`examples/superagent-governance`](./examples/superagent-governance) wires all
+seven plugins into a single Super-agent session and replays the same
+three-ticket workload twice — once bare, once governed — so the difference is
+measured rather than asserted:
+
+| | bare | governed |
+| --- | --- | --- |
+| tool calls executed | 11 | 6 |
+| calls refused | 0 | 5 (memo ×1, policy ×1, storm ×1, PII ×1, budget ×1) |
+| spans exported | 15 | 10 |
+| spans carrying a ticket id | 0 | 10 |
+
+The governed pass exports *fewer* spans on purpose: a call that never executes
+never produces a span. The five refused calls cost nothing and pollute nothing.
+
+The script is a replay, not a live model run — recorded session events are fed
+through the real plugins, so every number above comes out of the plugins' own
+code paths. `node examples/superagent-governance/run.mjs` prints both passes
+plus the per-ticket cost table.
+
 ## Quick start
 
 ```bash
