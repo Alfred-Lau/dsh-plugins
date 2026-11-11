@@ -179,6 +179,7 @@ function layerOf(verdict) {
 async function replay({ governed, port }) {
   const ctx = await boot({ governed, port })
   const outcomes = []
+  let seq = 0
 
   for (const step of STEPS) {
     if (step.kind === 'llm') {
@@ -194,7 +195,32 @@ async function replay({ governed, port }) {
     // A denied call never runs, so no result arrives for it. An explicit
     // `{ decision: 'allow' }` (policy's default verdict) still means "ran".
     const ran = !verdict || verdict.decision === 'allow'
-    if (step.output !== undefined && ran) {
+    if (!ran) continue
+
+    // Report the call to the trace stream the way the harness does: a start
+    // event when the tool is dispatched, an end event when it returns. Without
+    // these the trace only knows about LLM turns and the per-ticket tool
+    // counters stay at zero.
+    const callId = `call-${seq++}`
+    const startTs = Date.now()
+    ctx.emit('session/event', {
+      type: 'tool/start',
+      sessionId: step.s,
+      ts: startTs,
+      callId,
+      tool: { name: step.tool },
+      args: step.args,
+    })
+    if (step.output !== undefined) {
+      ctx.emit('session/event', {
+        type: 'tool/end',
+        sessionId: step.s,
+        ts: startTs + 12,
+        callId,
+        tool: { name: step.tool },
+        args: step.args,
+        result: step.output,
+      })
       ctx.emit('tools/post-execute', { tool: step.tool, args: step.args, output: step.output, sessionId: step.s })
     }
   }

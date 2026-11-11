@@ -47,9 +47,9 @@
       },
       "unpriced": [],
       "overBudget": [],
-      "untaggedSpans": 4
+      "untaggedSpans": 15
     },
-    "spans": 4
+    "spans": 15
   },
   "governed": {
     "outcomes": [
@@ -97,9 +97,9 @@
           "sessions": [
             "worker-t-1044"
           ],
-          "spans": 1,
+          "spans": 2,
           "llmCalls": 1,
-          "toolCalls": 0,
+          "toolCalls": 1,
           "failedToolCalls": 0,
           "inputTokens": 260000,
           "outputTokens": 20000,
@@ -109,7 +109,7 @@
           "models": [
             "deepseek-chat"
           ],
-          "lastSeen": 1794361343897
+          "lastSeen": 1794361365339
         },
         {
           "ticketId": "t-1042",
@@ -117,9 +117,9 @@
           "sessions": [
             "worker-t-1042"
           ],
-          "spans": 1,
+          "spans": 4,
           "llmCalls": 1,
-          "toolCalls": 0,
+          "toolCalls": 3,
           "failedToolCalls": 0,
           "inputTokens": 180000,
           "outputTokens": 12000,
@@ -129,7 +129,7 @@
           "models": [
             "deepseek-chat"
           ],
-          "lastSeen": 1794361343893
+          "lastSeen": 1794361365338
         },
         {
           "ticketId": "t-1043",
@@ -137,9 +137,9 @@
           "sessions": [
             "worker-t-1043"
           ],
-          "spans": 1,
+          "spans": 3,
           "llmCalls": 1,
-          "toolCalls": 0,
+          "toolCalls": 2,
           "failedToolCalls": 0,
           "inputTokens": 60000,
           "outputTokens": 5000,
@@ -149,7 +149,7 @@
           "models": [
             "deepseek-chat"
           ],
-          "lastSeen": 1794361343896
+          "lastSeen": 1794361365339
         },
         {
           "ticketId": "(router)",
@@ -169,14 +169,14 @@
           "models": [
             "deepseek-chat"
           ],
-          "lastSeen": 1794361343897
+          "lastSeen": 1794361365327
         }
       ],
       "totals": {
         "tickets": 4,
-        "spans": 4,
+        "spans": 10,
         "llmCalls": 4,
-        "toolCalls": 0,
+        "toolCalls": 6,
         "failedToolCalls": 0,
         "inputTokens": 520000,
         "outputTokens": 39000,
@@ -187,7 +187,7 @@
       "overBudget": [],
       "untaggedSpans": 0
     },
-    "spans": 4
+    "spans": 10
   },
   "expectations": [
     {
