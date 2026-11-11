@@ -1,0 +1,33 @@
+# dsh-ticket-context — ticket scope for dsh-superagent
+#
+# Install:   dsh plugin --profile web add dsh-ticket-context
+# Verify:    dsh --profile web --dump-config | grep -A8 'id: dsh-ticket'
+#
+# dsh-superagent already names every worker Session `worker-<ticketId>` and
+# keeps the router in a single master Session. This plugin turns that naming
+# convention into a `ticket` service so the other governance plugins can ask
+# "which ticket am I acting for?" without touching Super-agent.
+#
+# Set `masterId` to your router Session id to enable router-side scope. Leave
+# it empty and only workers resolve — the plugin then never claims a scope it
+# cannot prove.
+#
+# NOTE: a profile-level patch targeting this id replaces the WHOLE row config
+# (no deep merge) — restate every key you want to keep.
+- insert:
+  - id: dsh-ticket
+    name: dsh-ticket-context
+    config:
+      enabled: true
+      masterId: ""                    # router Session id; empty = workers only
+      workerPrefix: "worker-"         # matches dsh-superagent's executor naming
+      rules:
+        # Per-ticket policy. First matching glob wins.
+        # - match: "fix-*"
+        #   tools: ["read", "edit", "bash"]     # empty = no tool restriction
+        #   blockedCommands: ["git", "gh", "lark-cli"]   # the three Super-agent lets workers run
+        #   budgetUsd: 2.5
+        # - match: "review-*"
+        #   tools: ["read", "grep"]
+        # - match: "*"
+        #   blockedCommands: ["rm", "dd", "mkfs"]

@@ -2,7 +2,7 @@
 
 Community plugins for [DeepSeek Harness (dsh)](https://github.com/deepseek-ai/deepseek-harness).
 
-Six plugins, six jobs:
+Seven plugins, seven jobs:
 
 | Plugin | What it does | Key idea |
 | --------- | --- | --- |
@@ -11,6 +11,7 @@ Six plugins, six jobs:
 | [`dsh-pii`](./packages/dsh-pii) | PII detection & exfiltration guard | Checksum-validated detectors (emails, IDs, cards, keys), block outbound calls carrying PII, audit **without storing raw matches**. |
 | [`dsh-memo`](./packages/dsh-memo) | Tool-result memoization (TTL + LRU) | Repeated identical tool calls short-circuit with an explanatory cached preview; mutating tools excluded by default. |
 | [`dsh-rate`](./packages/dsh-rate) | 429 backoff, daily token budgets, tool-storm control | Exponential backoff windows + budget watermarks + storm gates; **monitor-first**, enforce is opt-in. |
+| [`dsh-ticket-context`](./packages/dsh-ticket) | Ticket scope for `dsh-superagent`: which ticket is this Session acting for? | Reads the `worker-<ticketId>` Session naming Super-agent already uses — no patch, no env var — and publishes it as a `ticket` service plus a per-ticket rule table. |
 | [`dsh-cost-eval`](./packages/dsh-cost-eval) | Quality × cost leaderboard and cost release gates over `dsh-eval` run records | Companion CLI to dsh-eval (not a runner): cost-per-success math, multi-run ranking, CI gate with explicit cost budgets. |
 
 All plugins follow the [dsh plugin contract](#plugin-contract): a cordis-bundle
