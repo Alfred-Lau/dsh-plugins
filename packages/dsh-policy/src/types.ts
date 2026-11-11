@@ -1,3 +1,5 @@
+import type { TicketDenyRule } from './ticket-rules.js'
+
 export type Effect = 'allow' | 'deny' | 'ask'
 
 /**
@@ -33,6 +35,29 @@ export interface AuditConfig {
   maxBytes?: number
 }
 
+/**
+ * Ticket-scoped enforcement, driven by dsh-superagent tickets.
+ *
+ * When enabled, every tool call is first checked against the rule matching its
+ * ticket id. `rules` here are the ticket rules; when `dsh-ticket-context` is
+ * loaded its rule table is used instead and this list is ignored.
+ */
+export interface TicketConfig {
+  /** Master switch for ticket-scoped enforcement. Default false. */
+  enabled?: boolean
+  /** Router Session id; without it only worker Sessions resolve a ticket. */
+  masterId?: string
+  /** Worker Session-id prefix (dsh-superagent uses `worker-`). */
+  workerPrefix?: string
+  /**
+   * Prefer the `ticket` service from dsh-ticket-context (its rule table).
+   * Default true; set false to use the `rules` below even when it is loaded.
+   */
+  useService?: boolean
+  /** Ticket rules used when no `ticket` service is available. */
+  rules?: TicketDenyRule[]
+}
+
 export interface PolicyConfig {
   /** Master switch — off by default so the harness keeps its own behavior. */
   enabled: boolean
@@ -46,6 +71,8 @@ export interface PolicyConfig {
   /** Arg names whose string values are treated as command strings. */
   commandArgs?: string[]
   audit?: AuditConfig
+  /** Ticket-scoped command/tool denial for dsh-superagent Sessions. */
+  ticket?: TicketConfig
 }
 
 export interface Decision {

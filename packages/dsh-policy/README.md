@@ -95,6 +95,54 @@ read-only tools.
 | `commandArgs` | `string[]` | `['command','cmd','shell','script']` | Arg keys treated as command carriers. |
 | `audit.enabled` | `boolean` | `true` | Write JSONL audit entries. |
 | `audit.file` | `string` | `<cwd>/.dsh-policy/audit.jsonl` | Audit sink. |
+| `ticket.enabled` | `boolean` | `false` | Ticket-scoped denial (see below). |
+| `ticket.masterId` | `string` | `''` | Router Session id; empty = workers only. |
+| `ticket.workerPrefix` | `string` | `'worker-'` | Worker Session-id prefix. |
+| `ticket.useService` | `boolean` | `true` | Prefer the rule table from `dsh-ticket-context`. |
+| `ticket.rules` | `TicketRule[]` | `[]` | Fallback rules when that service is absent. |
+
+## Ticket-scoped denial (dsh-superagent)
+
+`dsh-superagent` lets each ticket carry `blockedCommands`, but it matches the
+command name at a command position — `/usr/bin/git push` and
+`./node_modules/.bin/gh pr create` walk straight past it. This plugin closes
+that gap by compiling each blocked name into a regex that also accepts **any
+path prefix**, and by running the check **before** the general rule evaluator,
+so no `allow` rule can soften a ticket's deny list.
+
+```yaml
+ticket:
+  enabled: true
+  masterId: ""              # router Session id; empty = workers only
+  useService: true          # take the rules from dsh-ticket-context
+  rules:                    # used only when that service is not loaded
+    - match: "fix-*"
+      blockedCommands: ["git", "gh"]
+    - match: "review-*"
+      blockedCommands: []
+      allowedTools: ["read", "grep", "glob"]
+```
+
+What is caught for `blockedCommands: ["git"]`:
+
+| Command | Result |
+| --- | --- |
+| `git push` | denied |
+| `/usr/bin/git push` | denied |
+| `./node_modules/.bin/git status` | denied |
+| `cd repo && git push` | denied |
+| `env git push` | denied |
+| `gitlab-cli run` | allowed (not the same command) |
+
+The rule is deliberately conservative: a `git` inside a quoted string
+(`echo "use git"`) also matches, because distinguishing it from a real command
+position would require a shell parser. Over-blocking is the safe direction for
+a guardrail; the deny reason quotes what matched so the operator can see why.
+
+This is defence in depth, **not a sandbox**: deliberate obfuscation
+(`g""it`, a base64 payload piped to `sh`) is out of scope. For that, run the
+worker with a real sandbox — `dsh-superagent` already ships
+`@deepseek-ai/dsh-bash-sandbox` in the worker preset.
 
 ## Audit log
 

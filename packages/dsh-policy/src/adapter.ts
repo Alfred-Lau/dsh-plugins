@@ -3,6 +3,7 @@ import { PolicyEvaluator } from './evaluator.js'
 import { AuditLogger } from './audit.js'
 import { isRecord } from './util.js'
 import type { ToolCallInput } from './types.js'
+import type { TicketDenyVerdict } from './ticket-rules.js'
 
 /**
  * Tool-pipeline adapter — the ONLY place that knows dsh's tool event names.
@@ -27,15 +28,51 @@ export interface PolicyVerdict {
   ruleId?: string
 }
 
+/**
+ * Optional pre-check run before the general evaluator: ticket-scoped denial.
+ * Returning a verdict short-circuits the call; returning undefined falls
+ * through to the rule evaluator.
+ */
+export type TicketGate = (call: ToolCallInput) => TicketDenyVerdict | undefined
+
 export function attachPolicy(ctx: {
   on(event: string, listener: (payload: unknown) => unknown): void
-}, evaluator: PolicyEvaluator, audit: AuditLogger, logger: LoggerService): void {
+}, evaluator: PolicyEvaluator, audit: AuditLogger, logger: LoggerService, ticketGate?: TicketGate): void {
   ctx.on('tools/pre-execute', (payload: unknown): PolicyVerdict | undefined => {
     const call = parseToolCall(payload)
     if (!call) {
       logger.debug('[dsh-policy] pre-execute payload not recognized; letting the pipeline continue')
       return undefined
     }
+
+    // Ticket rules run first: a ticket's deny list is never softened by a
+    // general allow rule, which is what makes the layer worth having.
+    if (ticketGate) {
+      let denied: TicketDenyVerdict | undefined
+      try {
+        denied = ticketGate(call)
+      } catch (err) {
+        logger.warn(`[dsh-policy] ticket gate error: ${(err as Error).message}`)
+        denied = {
+          decision: 'deny',
+          reason: 'ticket policy evaluation failed (fail-closed)',
+          ruleId: 'ticket:error',
+        }
+      }
+      if (denied) {
+        audit.log({
+          phase: 'decision',
+          session_id: call.sessionId,
+          tool: call.tool,
+          args_hash: audit.hashArgs(call.args),
+          decision: 'deny',
+          rule_id: denied.ruleId,
+          reason: denied.reason,
+        })
+        return { decision: 'deny', reason: denied.reason, ruleId: denied.ruleId }
+      }
+    }
+
     const decision = evaluator.evaluate(call)
     audit.log({
       phase: 'decision',

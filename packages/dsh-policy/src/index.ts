@@ -2,12 +2,17 @@ import { attachPolicy } from './adapter.js'
 import { AuditLogger } from './audit.js'
 import { PolicyEvaluator } from './evaluator.js'
 import { Config } from './config-schema.js'
+import { checkTicketDeny, compileTicketRules, ruleForTicket } from './ticket-rules.js'
+import { extractCommands } from './matcher.js'
+import { makeTicketGate } from './ticket-gate.js'
 import type { Context } from '@deepseek-ai/cordis'
 import type { PolicyConfig } from './types.js'
 
 export { Config } from './config-schema.js'
 export { PolicyEvaluator } from './evaluator.js'
 export { globToRegExp, extractCommands, extractPaths } from './matcher.js'
+export { checkTicketDeny, compileBlockedCommand, compileTicketRules, ruleForTicket } from './ticket-rules.js'
+export type { TicketDenyRule, CompiledTicketDenyRule, TicketDenyVerdict, TicketScopeLike } from './ticket-rules.js'
 export type { PolicyConfig, PolicyRule, Decision, Effect } from './types.js'
 
 /** Plugin display name (diagnostics only). */
@@ -37,7 +42,14 @@ export function apply(ctx: Context, config: PolicyConfig): void {
   const evaluator = new PolicyEvaluator(config)
   const audit = new AuditLogger(config.audit)
 
-  attachPolicy(ctx, evaluator, audit, ctx.logger)
+  // Ticket-scoped denial: uses dsh-ticket-context's rule table when loaded,
+  // this plugin's own `ticket.rules` otherwise.
+  const ticketGate = makeTicketGate(ctx, config)
+  if (ticketGate) {
+    ctx.logger.info(`[dsh-policy] ticket gate on: ${ticketGate.ruleCount} rule(s) from ${ticketGate.source}`)
+  }
+
+  attachPolicy(ctx, evaluator, audit, ctx.logger, ticketGate?.gate)
 
   ctx.logger.info(
     `[dsh-policy] active: ${evaluator.ruleCount} rule(s), default=${config.defaultDecision ?? 'ask'}, ` +

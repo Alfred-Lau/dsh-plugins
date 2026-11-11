@@ -24,6 +24,20 @@ export const Config: Schema<PolicyConfig> = Schema.object({
   failClosed: Schema.boolean().default(true),
   pathArgs: Schema.array(Schema.string()),
   commandArgs: Schema.array(Schema.string()),
+  ticket: Schema.object({
+    enabled: Schema.boolean().default(false),
+    masterId: Schema.string().default(''),
+    workerPrefix: Schema.string().default('worker-'),
+    useService: Schema.boolean().default(true),
+    rules: Schema.array(
+      Schema.object({
+        match: Schema.string().required(),
+        blockedCommands: Schema.array(Schema.string()).default([]),
+        allowedTools: Schema.array(Schema.string()).default([]),
+        budgetUsd: Schema.number().min(0),
+      }),
+    ).default([]),
+  }),
   audit: Schema.object({
     enabled: Schema.boolean().default(true),
     file: Schema.string().default(''),

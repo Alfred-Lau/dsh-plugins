@@ -1,7 +1,7 @@
 {
   "name": "dsh-tool-policy",
-  "version": "0.1.2",
-  "description": "Declarative tool-call permission control for DeepSeek Harness — allow/deny/ask rules over tools, paths and commands, fail-closed by default, with JSONL audit log.",
+  "version": "0.2.0",
+  "description": "Declarative tool-call permission control for DeepSeek Harness — allow/deny/ask rules over tools, paths and commands, fail-closed by default, with JSONL audit log. Ticket-scoped denial for dsh-superagent tickets, closing the absolute-path bypass.",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
