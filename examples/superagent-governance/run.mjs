@@ -285,8 +285,12 @@ function main() {
     writeFileSync(join(OUT, 'governed-tickets.md'), renderTicketReportMarkdown(govTickets, 'dsh-trace spans'))
     writeFileSync(join(OUT, 'bare-tickets.md'), renderTicketReportMarkdown(bareTickets, 'dsh-trace spans'))
 
+    const passed = report.expectations.filter((e) => e.ok).length
+    const total = report.expectations.length
+
     if (process.argv.includes('--json')) {
       process.stdout.write(JSON.stringify(report, null, 2) + '\n')
+      if (process.argv.includes('--strict') && passed !== total) process.exitCode = 1
       return
     }
 
@@ -307,7 +311,17 @@ function main() {
       line(`  ${e.ok ? 'ok  ' : 'MISS'} ${e.ticket.padEnd(14)} expected=${e.expected.padEnd(7)} actual=${e.actual.padEnd(7)} ${e.command}`)
     }
     line()
+    line(`  ${passed}/${total} expectations ok`)
+    line()
     line(renderTicketReportMarkdown(govTickets, 'dsh-trace spans'))
+
+    // `--strict` turns a missed expectation into a non-zero exit so CI can gate
+    // on it. Without the flag a miss is just information, which is what you
+    // want while poking at the plugins locally.
+    if (process.argv.includes('--strict') && passed !== total) {
+      process.stderr.write(`\n${total - passed} expectation(s) missed\n`)
+      process.exitCode = 1
+    }
   })()
 }
 

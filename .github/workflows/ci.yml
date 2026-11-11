@@ -14,18 +14,22 @@ jobs:
       matrix:
         node: [22, 24]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: pnpm/action-setup@v4
         # version comes from package.json#packageManager
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ matrix.node }}
           cache: pnpm
 
+      # The lockfile is the only thing that makes a CI run reproducible: two
+      # runs of the same commit must install the same versions. `--frozen-lockfile`
+      # fails loudly when package.json and pnpm-lock.yaml have drifted apart,
+      # which is exactly the signal we want instead of a silent floating install.
       - name: Install
-        run: pnpm install --frozen-lockfile=false
+        run: pnpm install --frozen-lockfile
 
       - name: Typecheck
         run: pnpm -r typecheck
@@ -35,3 +39,10 @@ jobs:
 
       - name: Test
         run: pnpm -r test
+
+      # The example is the only place the seven plugins are exercised together,
+      # and it is what the README shows off — so it has to be a gate, not a demo
+      # you remember to run. `--strict` makes a missed expectation exit non-zero;
+      # without it the script prints MISS and exits 0 regardless.
+      - name: Governance example
+        run: node examples/superagent-governance/run.mjs --strict
