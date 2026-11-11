@@ -31,6 +31,19 @@ export const Config: Schema<PiiConfig> = Schema.object({
   minMatches: Schema.number().default(1),
   scanResults: Schema.boolean().default(true),
   maxScanChars: Schema.number().default(100_000),
+  ticket: Schema.object({
+    enabled: Schema.boolean().default(true),
+    masterId: Schema.string().default(''),
+    workerPrefix: Schema.string().default('worker-'),
+    rules: Schema.array(
+      Schema.object({
+        match: Schema.string().required(),
+        mode: Schema.union(['audit', 'block'] as const),
+        outboundTools: Schema.array(Schema.string()),
+        minMatches: Schema.number().min(1),
+      }),
+    ).default([]),
+  }),
   audit: Schema.object({
     enabled: Schema.boolean().default(true),
     file: Schema.string().default(''),

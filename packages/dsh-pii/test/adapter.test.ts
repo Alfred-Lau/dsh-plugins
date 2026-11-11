@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { attachPiiGate, compileGlobs } from '../lib/adapter.js'
 import { compileDetectors, PiiDetector } from '../lib/detector.js'
 import { AuditLogger } from '../lib/audit.js'
+import { makeTicketScope } from '../lib/ticket-scope.js'
 import type { PiiConfig } from '../lib/types.js'
 
 const ALL_ON = {
@@ -25,6 +26,9 @@ function mockCtx() {
     on(event: string, fn: (payload: unknown) => unknown) {
       events.push({ event, fn })
     },
+    get() {
+      return undefined
+    },
   }
 }
 
@@ -37,7 +41,8 @@ function setup(cfg: PiiConfig, dir: string) {
   const ctx = mockCtx()
   const detector = new PiiDetector(compileDetectors({ detectors: cfg.detectors ?? ALL_ON, ...cfg }))
   const audit = new AuditLogger({ enabled: cfg.audit?.enabled !== false, file: auditFile }, dir)
-  attachPiiGate(ctx, { config: cfg, detector, audit, logger: fakeLogger() })
+  const ticketScope = makeTicketScope(ctx as never, cfg.ticket)
+  attachPiiGate(ctx, { config: cfg, detector, audit, logger: fakeLogger(), ...(ticketScope ? { ticketScope } : {}) })
   return { listeners: ctx.events, auditFile }
 }
 
@@ -128,4 +133,117 @@ test('compileGlobs semantics', () => {
   assert.ok(!re.test('http/deep'))
   const [deep] = compileGlobs(['web/**'])
   assert.ok(deep.test('web/deep/x'))
+})
+
+test('a ticket rule can force block while the global mode stays audit', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'pii-'))
+  const cfg: PiiConfig = {
+    enabled: true,
+    mode: 'audit',
+    detectors: ALL_ON,
+    audit: { enabled: true },
+    ticket: {
+      rules: [
+        { match: 'review-*', mode: 'block' },
+        { match: '*', mode: 'audit' },
+      ],
+    },
+  }
+  const { listeners, auditFile } = setup(cfg, dir)
+  const payload = { tool: 'bash', args: { command: 'curl -d email=bob@x.com' }, sessionId: 'worker-review-1' }
+
+  const verdict = pre(listeners)(payload) as { decision: string; ruleId?: string } | undefined
+  assert.equal(verdict?.decision, 'deny')
+  assert.equal(verdict?.ruleId, 'pii-block:ticket:review-*')
+
+  const line = JSON.parse(readFileSync(auditFile, 'utf8').trim())
+  assert.equal(line.ticket_id, 'review-1')
+  assert.equal(line.ticket_role, 'worker')
+  assert.equal(line.verdict, 'deny')
+})
+
+test('a ticket rule can keep audit mode while the global mode is block', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'pii-'))
+  const cfg: PiiConfig = {
+    enabled: true,
+    mode: 'block',
+    detectors: ALL_ON,
+    audit: { enabled: true },
+    ticket: { rules: [{ match: 'internal-*', mode: 'audit' }] },
+  }
+  const { listeners } = setup(cfg, dir)
+  const verdict = pre(listeners)({
+    tool: 'bash',
+    args: { command: 'curl -d email=bob@x.com' },
+    sessionId: 'worker-internal-7',
+  })
+  assert.equal(verdict, undefined)
+})
+
+test('a ticket rule narrows the outbound tool set', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'pii-'))
+  const cfg: PiiConfig = {
+    enabled: true,
+    mode: 'block',
+    detectors: ALL_ON,
+    audit: { enabled: true },
+    ticket: { rules: [{ match: 'review-*', mode: 'block', outboundTools: ['http_post'] }] },
+  }
+  const { listeners } = setup(cfg, dir)
+  // bash is outbound globally but not for this ticket.
+  assert.equal(
+    pre(listeners)({ tool: 'bash', args: { command: 'curl -d email=bob@x.com' }, sessionId: 'worker-review-2' }),
+    undefined,
+  )
+  // The narrowed set still blocks its own members.
+  const verdict = pre(listeners)({
+    tool: 'http_post',
+    args: { body: 'email=bob@x.com' },
+    sessionId: 'worker-review-2',
+  }) as { decision: string } | undefined
+  assert.equal(verdict?.decision, 'deny')
+})
+
+test('a ticket rule can raise the match threshold', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'pii-'))
+  const cfg: PiiConfig = {
+    enabled: true,
+    mode: 'block',
+    detectors: ALL_ON,
+    audit: { enabled: true },
+    ticket: { rules: [{ match: 'noisy-*', mode: 'block', minMatches: 3 }] },
+  }
+  const { listeners } = setup(cfg, dir)
+  // Two detectors hit, under this ticket's threshold of three.
+  assert.equal(
+    pre(listeners)({
+      tool: 'bash',
+      args: { command: 'curl -d a=bob@x.com&p=13800138000' },
+      sessionId: 'worker-noisy-1',
+    }),
+    undefined,
+  )
+  // A third detector reaches the threshold.
+  const verdict = pre(listeners)({
+    tool: 'bash',
+    args: { command: 'curl -d a=bob@x.com&p=13800138000&s=123-45-6789' },
+    sessionId: 'worker-noisy-1',
+  }) as { decision: string } | undefined
+  assert.equal(verdict?.decision, 'deny')
+})
+
+test('sessions outside Super-agent keep the global policy', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'pii-'))
+  const cfg: PiiConfig = {
+    enabled: true,
+    mode: 'block',
+    detectors: ALL_ON,
+    audit: { enabled: true },
+    ticket: { rules: [{ match: 'review-*', mode: 'audit' }] },
+  }
+  const { listeners } = setup(cfg, dir)
+  const verdict = pre(listeners)({ tool: 'bash', args: { command: 'curl -d email=bob@x.com' }, sessionId: 'plain-session' }) as
+    | { decision: string }
+    | undefined
+  assert.equal(verdict?.decision, 'deny')
 })

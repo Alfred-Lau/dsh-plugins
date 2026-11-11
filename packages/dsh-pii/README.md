@@ -73,15 +73,44 @@ wrapper or wait for a dsh mutation seam.
     minMatches: 1
     scanResults: true
     audit: { enabled: true }    # default file: <cwd>/.dsh-pii-gate/audit.jsonl
+    ticket:
+      enabled: true
+      masterId: ""              # router Session id; empty = workers only
+      rules:
+        - { match: "review-*", mode: block }     # public-facing ticket: hard block
+        - { match: "internal-*", mode: audit }   # internal ticket: observe only
 ```
 
 > A profile-level patch targeting `id: dsh-pii` replaces the WHOLE config row
 > (no deep merge) — restate every key you want to keep.
 
+## Ticket-scoped policy (dsh-superagent)
+
+A single global `mode` is the wrong shape once tickets differ in exposure: the
+ticket that opens a public pull request must hard-block PII, while the one
+refactoring an internal module should stay observe-only. `ticket.rules` lets
+each ticket override the global setting, first glob match wins.
+
+| Rule key | Effect |
+| --- | --- |
+| `mode` | `audit` or `block`, overriding the global mode |
+| `outboundTools` | Replaces the global outbound set for this ticket |
+| `minMatches` | Raises or lowers this ticket's threshold |
+
+The ticket comes from the `worker-<ticketId>` Session naming
+`dsh-superagent` already uses, or from `dsh-ticket-context` when it is loaded.
+Sessions outside Super-agent keep the global policy untouched. Every audit line
+gains `ticket_id` and `ticket_role`, so `jq 'select(.ticket_id=="t-42")'` gives
+one ticket's full PII trail.
+
+> `minMatches` counts **detectors**, not occurrences: each detector reports at
+> most one hit per scanned string, so three emails in one command count as one
+> match. Set thresholds against distinct detector types.
+
 ## Audit format (JSONL)
 
 ```json
-{"ts":"2026-09-19T12:00:00.000Z","pii_version":"0.1.0","phase":"decision","tool":"http_request","args_hash":"9f2b…","verdict":"deny","matches":{"email":1,"phone_cn":1},"total":2,"reason":"PII on outbound tool (email, phone_cn)"}
+{"ts":"2026-09-19T12:00:00.000Z","pii_version":"0.1.0","phase":"decision","session_id":"worker-t-42","ticket_id":"t-42","ticket_role":"worker","tool":"http_request","args_hash":"9f2b…","verdict":"deny","matches":{"email":1,"phone_cn":1},"total":2,"reason":"PII on outbound tool (email, phone_cn)"}
 ```
 
 ## Development

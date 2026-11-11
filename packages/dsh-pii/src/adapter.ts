@@ -2,6 +2,7 @@ import type { LoggerService } from '@deepseek-ai/cordis'
 import { PiiDetector, collectStrings, countByType } from './detector.js'
 import { AuditLogger } from './audit.js'
 import type { PiiConfig, PiiMatch } from './types.js'
+import type { TicketScopeHandle } from './ticket-scope.js'
 
 /**
  * Tool-pipeline adapter — the ONLY place that knows dsh's tool event names.
@@ -27,16 +28,30 @@ export interface PiiGateDeps {
   detector: PiiDetector
   audit: AuditLogger
   logger: LoggerService
+  /** Ticket-scoped overrides; absent when the feature is off. */
+  ticketScope?: TicketScopeHandle
 }
 
 export function attachPiiGate(ctx: {
   on(event: string, listener: (payload: unknown) => unknown): void
 }, deps: PiiGateDeps): void {
-  const { config, detector, audit, logger } = deps
+  const { config, detector, audit, logger, ticketScope } = deps
   const outbound = compileGlobs(config.outboundTools ?? DEFAULT_OUTBOUND)
   const exempt = compileGlobs(config.exemptTools ?? [])
   const minMatches = Math.max(1, config.minMatches ?? 1)
   const blockMode = config.mode === 'block'
+
+  // Per-ticket overrides, compiled once per distinct rule.
+  const ruleOutbound = new Map<object, RegExp[]>()
+  const outboundFor = (rule: { outboundTools?: string[] } | undefined): RegExp[] => {
+    if (!rule?.outboundTools) return outbound
+    let compiled = ruleOutbound.get(rule)
+    if (!compiled) {
+      compiled = compileGlobs(rule.outboundTools)
+      ruleOutbound.set(rule, compiled)
+    }
+    return compiled
+  }
 
   ctx.on('tools/pre-execute', (payload: unknown): PiiVerdict | undefined => {
     const call = parseToolCall(payload)
@@ -46,15 +61,25 @@ export function attachPiiGate(ctx: {
     }
     if (exempt.some((re) => re.test(call.tool))) return undefined
 
+    // A ticket may tighten (or relax) the global policy: a ticket working on a
+    // public PR can force `block` while the rest of the run stays observe-only.
+    const scope = ticketScope?.scopeOf(call.sessionId)
+    const rule = scope ? ticketScope?.ruleFor(scope) : undefined
+    const effectiveBlockMode = (rule?.mode ?? config.mode) === 'block'
+    const effectiveMin = Math.max(1, rule?.minMatches ?? minMatches)
+    const effectiveOutbound = outboundFor(rule)
+
     const strings = collectStrings(call.args)
     const matches = strings.flatMap((s) => detector.scan(s))
     const counts = countByType(matches)
     const shouldBlock =
-      blockMode && matches.length >= minMatches && outbound.some((re) => re.test(call.tool))
+      effectiveBlockMode && matches.length >= effectiveMin && effectiveOutbound.some((re) => re.test(call.tool))
 
     audit.log({
       phase: 'decision',
       session_id: call.sessionId,
+      ...(scope?.ticketId ? { ticket_id: scope.ticketId } : {}),
+      ...(scope ? { ticket_role: scope.role } : {}),
       tool: call.tool,
       args_hash: audit.hashArgs(call.args),
       verdict: shouldBlock ? 'deny' : 'allow',
@@ -66,12 +91,13 @@ export function attachPiiGate(ctx: {
     if (shouldBlock) {
       const types = Object.keys(counts).join(', ')
       logger.warn(`[dsh-pii-gate] denied ${call.tool}: ${matches.length} PII match(es) [${types}]`)
+      const where = scope?.ticketId ? ` for ticket ${scope.ticketId}` : ''
       return {
         decision: 'deny',
         reason:
-          `[dsh-pii-gate] blocked: ${matches.length} PII match(es) [${types}] in arguments of tool '${call.tool}'. ` +
+          `[dsh-pii-gate] blocked${where}: ${matches.length} PII match(es) [${types}] in arguments of tool '${call.tool}'. ` +
           `Scrub the input or add this tool to exemptTools if the data is expected.`,
-        ruleId: 'pii-block',
+        ruleId: rule ? `pii-block:ticket:${rule.match}` : 'pii-block',
       }
     }
     return undefined
@@ -84,9 +110,12 @@ export function attachPiiGate(ctx: {
     const strings = collectStrings(result.output)
     const matches = strings.flatMap((s) => detector.scan(s))
     if (matches.length === 0) return
+    const outcomeScope = ticketScope?.scopeOf(result.sessionId)
     audit.log({
       phase: 'outcome',
       session_id: result.sessionId,
+      ...(outcomeScope?.ticketId ? { ticket_id: outcomeScope.ticketId } : {}),
+      ...(outcomeScope ? { ticket_role: outcomeScope.role } : {}),
       tool: result.tool,
       args_hash: result.argsHash,
       verdict: 'observe',

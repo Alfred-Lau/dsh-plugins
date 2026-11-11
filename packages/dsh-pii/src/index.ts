@@ -2,10 +2,13 @@ import { compileDetectors, PiiDetector } from './detector.js'
 import { attachPiiGate } from './adapter.js'
 import { AuditLogger } from './audit.js'
 import { Config } from './config-schema.js'
+import { makeTicketScope } from './ticket-scope.js'
 import type { Context } from '@deepseek-ai/cordis'
 import type { PiiConfig } from './types.js'
 
 export { Config }
+export { makeTicketScope, resolveTicketScope, ruleForTicket } from './ticket-scope.js'
+export type { TicketScope, TicketPiiRule, TicketPiiConfig } from './ticket-scope.js'
 
 /** Plugin display name (diagnostics only). */
 export const name = 'dsh-pii'
@@ -35,9 +38,12 @@ export function apply(ctx: Context, config: PiiConfig): void {
   const detector = new PiiDetector(detectors, config.maxScanChars)
   const audit = new AuditLogger(config.audit)
 
-  attachPiiGate(ctx, { config, detector, audit, logger: ctx.logger })
+  const ticketScope = makeTicketScope(ctx, config.ticket)
+  attachPiiGate(ctx, { config, detector, audit, logger: ctx.logger, ...(ticketScope ? { ticketScope } : {}) })
 
   ctx.logger.info(
-    `[dsh-pii-gate] active: mode=${config.mode ?? 'audit'}, detectors=${detectors.map((d) => d.id).join(',')}, audit=${audit.path ?? 'off'}`,
+    `[dsh-pii-gate] active: mode=${config.mode ?? 'audit'}, detectors=${detectors.map((d) => d.id).join(',')}, ` +
+      `audit=${audit.path ?? 'off'}` +
+      (ticketScope ? `, ticket rules=${config.ticket?.rules?.length ?? 0} from ${ticketScope.source}` : ', ticket off'),
   )
 }

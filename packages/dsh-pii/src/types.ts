@@ -24,6 +24,10 @@ export interface PiiAuditEntry {
   pii_version: string
   phase: 'decision' | 'outcome'
   session_id?: string
+  /** dsh-superagent ticket the call belonged to, when known. */
+  ticket_id?: string
+  /** `worker` or `router`; absent outside Super-agent. */
+  ticket_role?: string
   tool: string
   args_hash?: string
   /** decision phase: what the gate did; outcome phase: always 'observe'. */
@@ -46,6 +50,8 @@ export interface CustomPattern {
 }
 
 export interface PiiConfig {
+  /** Ticket-scoped scanning for dsh-superagent Sessions. */
+  ticket?: import('./ticket-scope.js').TicketPiiConfig
   enabled?: boolean
   /**
    * audit  = detect + audit + let the pipeline continue (default, observe-only)
