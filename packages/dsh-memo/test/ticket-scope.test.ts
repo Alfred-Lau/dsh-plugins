@@ -86,8 +86,8 @@ test('a cached result is never served to a different ticket', () => {
   // Same tool, same args, different ticket: must miss.
   assert.equal(pre({ tool: 'read', args, sessionId: 'worker-t-b' }), undefined)
   // The ticket that stored it hits.
-  const hit = pre({ tool: 'read', args, sessionId: 'worker-t-a' }) as { decision: string; memoized?: boolean } | undefined
-  assert.equal(hit?.decision, 'deny')
+  const hit = pre({ tool: 'read', args, sessionId: 'worker-t-a' }) as { kind: string; memoized?: boolean } | undefined
+  assert.equal(hit?.kind, 'deny')
   assert.equal(hit?.memoized, true)
 })
 
@@ -95,8 +95,8 @@ test('isolation: none restores the shared cache', () => {
   const { pre, post } = setup({ enabled: true, mode: 'hint', ticket: { isolation: 'none' } })
   const args = { path: 'README.md' }
   post({ tool: 'read', args, output: '# hi', sessionId: 'worker-t-a' })
-  const hit = pre({ tool: 'read', args, sessionId: 'worker-t-b' }) as { decision: string } | undefined
-  assert.equal(hit?.decision, 'deny')
+  const hit = pre({ tool: 'read', args, sessionId: 'worker-t-b' }) as { kind: string } | undefined
+  assert.equal(hit?.kind, 'deny')
 })
 
 test('isolation: session also separates the router from its workers', () => {
@@ -104,16 +104,16 @@ test('isolation: session also separates the router from its workers', () => {
   const args = { path: 'plan.md' }
   post({ tool: 'read', args, output: 'plan', sessionId: 'worker-t-a' })
   assert.equal(pre({ tool: 'read', args, sessionId: 'master' }), undefined)
-  const hit = pre({ tool: 'read', args, sessionId: 'worker-t-a' }) as { decision: string } | undefined
-  assert.equal(hit?.decision, 'deny')
+  const hit = pre({ tool: 'read', args, sessionId: 'worker-t-a' }) as { kind: string } | undefined
+  assert.equal(hit?.kind, 'deny')
 })
 
 test('a plain session keeps the shared cache', () => {
   const { pre, post } = setup({ enabled: true, mode: 'hint' })
   const args = { path: 'a.txt' }
   post({ tool: 'read', args, output: 'A', sessionId: 'plain-1' })
-  const hit = pre({ tool: 'read', args, sessionId: 'plain-2' }) as { decision: string } | undefined
-  assert.equal(hit?.decision, 'deny')
+  const hit = pre({ tool: 'read', args, sessionId: 'plain-2' }) as { kind: string } | undefined
+  assert.equal(hit?.kind, 'deny')
 })
 
 test('the shared service decides the bucket when it is loaded', () => {
@@ -124,7 +124,7 @@ test('the shared service decides the bucket when it is loaded', () => {
   const args = { path: 'x.txt' }
   post({ tool: 'read', args, output: 'X', sessionId: 'anything-a' })
   // A different Session id that the service maps to the same ticket hits.
-  const hit = pre({ tool: 'read', args, sessionId: 'anything-b' }) as { decision: string } | undefined
+  const hit = pre({ tool: 'read', args, sessionId: 'anything-b' }) as { kind: string } | undefined
   assert.equal(hit, undefined)
 })
 
@@ -132,8 +132,8 @@ test('disabling ticket isolation keeps the old single-bucket behaviour', () => {
   const { pre, post } = setup({ enabled: true, mode: 'hint', ticket: { enabled: false } })
   const args = { path: 'y.txt' }
   post({ tool: 'read', args, output: 'Y', sessionId: 'worker-t-a' })
-  const hit = pre({ tool: 'read', args, sessionId: 'worker-t-b' }) as { decision: string } | undefined
-  assert.equal(hit?.decision, 'deny')
+  const hit = pre({ tool: 'read', args, sessionId: 'worker-t-b' }) as { kind: string } | undefined
+  assert.equal(hit?.kind, 'deny')
 })
 
 test('capacity is one global LRU bound shared by all buckets', () => {

@@ -18,7 +18,8 @@ import type { TicketScopeHandle } from './ticket-scope.js'
  */
 
 export interface PiiVerdict {
-  decision: 'allow' | 'deny'
+  /** `tools/pre-execute` is discriminated by `kind`; the harness reads it directly. */
+  kind: 'allow' | 'deny'
   reason?: string
   ruleId?: string
 }
@@ -33,7 +34,9 @@ export interface PiiGateDeps {
 }
 
 export function attachPiiGate(ctx: {
-  on(event: string, listener: (payload: unknown, next?: () => unknown) => unknown): void
+  // Widened deliberately: cordis 4.1's `Context.on` overloads no longer
+  // satisfy a narrower listener type, and this adapter only calls `on`.
+  on(event: string, listener: (...args: any[]) => unknown): void
 }, deps: PiiGateDeps): void {
   const { config, detector, audit, logger, ticketScope } = deps
   // Same empty-array trap as the per-ticket rules: schemastery materialises an
@@ -104,7 +107,7 @@ export function attachPiiGate(ctx: {
       logger.warn(`[dsh-pii-gate] denied ${call.tool}: ${matches.length} PII match(es) [${types}]`)
       const where = scope?.ticketId ? ` for ticket ${scope.ticketId}` : ''
       return {
-        decision: 'deny',
+        kind: 'deny',
         reason:
           `[dsh-pii-gate] blocked${where}: ${matches.length} PII match(es) [${types}] in arguments of tool '${call.tool}'. ` +
           `Scrub the input or add this tool to exemptTools if the data is expected.`,
@@ -114,25 +117,39 @@ export function attachPiiGate(ctx: {
     return pass()
   })
 
-  ctx.on('tools/post-execute', (payload: unknown) => {
-    if (config.scanResults === false) return
-    const result = parseToolResult(payload)
-    if (!result) return
-    const strings = collectStrings(result.output)
-    const matches = strings.flatMap((s) => detector.scan(s))
-    if (matches.length === 0) return
-    const outcomeScope = ticketScope?.scopeOf(result.sessionId)
-    audit.log({
-      phase: 'outcome',
-      session_id: result.sessionId,
-      ...(outcomeScope?.ticketId ? { ticket_id: outcomeScope.ticketId } : {}),
-      ...(outcomeScope ? { ticket_role: outcomeScope.role } : {}),
-      tool: result.tool,
-      args_hash: result.argsHash,
-      verdict: 'observe',
-      matches: countByType(matches),
-      total: matches.length,
-    })
+  // `tools/post-execute` is a waterfall: whatever we return becomes the
+  // harness's decision, and it dereferences `decision.kind` and
+  // `decision.additionalContexts` unconditionally. Returning nothing would
+  // replace the default `{ kind: 'accept' }` with `undefined` and break every
+  // tool call, so the chain is always handed on.
+  ctx.on('tools/post-execute', (exec: unknown, rawResult: unknown, next?: () => unknown) => {
+    try {
+      if (config.scanResults !== false) {
+        const result = parseToolResult(exec, rawResult)
+        if (result) {
+          const strings = collectStrings(result.output)
+          const matches = strings.flatMap((s) => detector.scan(s))
+          if (matches.length > 0) {
+            const outcomeScope = ticketScope?.scopeOf(result.sessionId)
+            audit.log({
+              phase: 'outcome',
+              session_id: result.sessionId,
+              ...(outcomeScope?.ticketId ? { ticket_id: outcomeScope.ticketId } : {}),
+              ...(outcomeScope ? { ticket_role: outcomeScope.role } : {}),
+              tool: result.tool,
+              args_hash: result.argsHash,
+              verdict: 'observe',
+              matches: countByType(matches),
+              total: matches.length,
+            })
+          }
+        }
+      }
+    } catch (err) {
+      // Scanning output must never be the reason a tool call fails.
+      logger.warn(`[dsh-pii-gate] post-execute scan failed: ${(err as Error).message}`)
+    }
+    return next?.() ?? { kind: 'accept' }
   })
 }
 
@@ -183,20 +200,25 @@ export function parseToolCall(payload: unknown): ParsedCall | null {
   }
 }
 
-export function parseToolResult(payload: unknown): {
+/**
+ * `tools/post-execute` delivers the execution and its result as two separate
+ * arguments, so the tool identity comes from `exec` and the payload to scan
+ * from `result`.
+ */
+export function parseToolResult(exec: unknown, result?: unknown): {
   tool: string
   output: unknown
   sessionId?: string
   argsHash?: string
 } | null {
-  const isRec = isRecord(payload)
-  const tool = isRec ? firstString(rec(payload, ['tool', 'toolName', 'tool_name', 'name'])) : undefined
-  if (!tool || !isRec) return null
+  const call = parseToolCall(exec)
+  if (!call) return null
+  const payload = result !== undefined ? result : exec
   return {
-    tool,
-    output: rec(payload, ['result', 'output', 'content']),
-    sessionId: firstString(rec(payload, ['sessionId', 'session_id', 'session'])),
-    argsHash: firstString(rec(payload, ['argsHash', 'args_hash'])),
+    tool: call.tool,
+    output: isRecord(payload) ? rec(payload, ['result', 'output', 'content']) ?? payload : payload,
+    sessionId: call.sessionId,
+    argsHash: firstString(rec(exec, ['argsHash', 'args_hash'])),
   }
 }
 

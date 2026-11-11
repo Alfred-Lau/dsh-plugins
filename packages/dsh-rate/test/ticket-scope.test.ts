@@ -125,8 +125,8 @@ test('one ticket exhausting its allowance does not block another ticket', () => 
 
   onEvent({ type: 'assistant', sessionId: 'worker-fix-1', usage: { input_tokens: 1000, output_tokens: 0 } })
 
-  const denied = pre({ tool: 'bash', args: { command: 'ls' }, sessionId: 'worker-fix-1' }) as { decision: string; ruleId?: string } | undefined
-  assert.equal(denied?.decision, 'deny')
+  const denied = pre({ tool: 'bash', args: { command: 'ls' }, sessionId: 'worker-fix-1' }) as { kind: string; ruleId?: string } | undefined
+  assert.equal(denied?.kind, 'deny')
   assert.equal(denied?.ruleId, 'rate-budget:ticket:fix-*')
 
   // A different ticket has its own untouched allowance.
@@ -149,8 +149,8 @@ test('a ticket rule can tighten the mode to enforce while the global mode is mon
 
   // The review ticket enforces its own window.
   assert.equal(pre({ tool: 'read', args: {}, sessionId: 'worker-review-1' }), undefined)
-  const denied = pre({ tool: 'read', args: {}, sessionId: 'worker-review-1' }) as { decision: string; ruleId?: string } | undefined
-  assert.equal(denied?.decision, 'deny')
+  const denied = pre({ tool: 'read', args: {}, sessionId: 'worker-review-1' }) as { kind: string; ruleId?: string } | undefined
+  assert.equal(denied?.kind, 'deny')
   assert.equal(denied?.ruleId, 'rate-storm:ticket:review-*')
 })
 
@@ -164,8 +164,8 @@ test('a ticket storm window leaves other tickets unaffected', () => {
 
   assert.equal(pre({ tool: 'read', args: {}, sessionId: 'worker-busy-1' }), undefined)
   assert.equal(pre({ tool: 'read', args: {}, sessionId: 'worker-busy-1' }), undefined)
-  const denied = pre({ tool: 'read', args: {}, sessionId: 'worker-busy-1' }) as { decision: string } | undefined
-  assert.equal(denied?.decision, 'deny')
+  const denied = pre({ tool: 'read', args: {}, sessionId: 'worker-busy-1' }) as { kind: string } | undefined
+  assert.equal(denied?.kind, 'deny')
 
   // A quiet ticket keeps working.
   for (let i = 0; i < 5; i += 1) {
@@ -183,14 +183,14 @@ test('the global budget still applies to a ticket without its own allowance', ()
 
   onEvent({ type: 'assistant', sessionId: 'worker-plain-1', usage: { input_tokens: 500, output_tokens: 0 } })
 
-  const denied = pre({ tool: 'bash', args: {}, sessionId: 'worker-plain-1' }) as { decision: string; ruleId?: string } | undefined
-  assert.equal(denied?.decision, 'deny')
+  const denied = pre({ tool: 'bash', args: {}, sessionId: 'worker-plain-1' }) as { kind: string; ruleId?: string } | undefined
+  assert.equal(denied?.kind, 'deny')
   assert.equal(denied?.ruleId, 'rate-budget')
 
   // The special ticket has its own larger allowance, and the global one is
   // already spent — the tighter of the two still governs it.
-  const special = pre({ tool: 'bash', args: {}, sessionId: 'worker-special-1' }) as { decision: string; ruleId?: string } | undefined
-  assert.equal(special?.decision, 'deny')
+  const special = pre({ tool: 'bash', args: {}, sessionId: 'worker-special-1' }) as { kind: string; ruleId?: string } | undefined
+  assert.equal(special?.kind, 'deny')
   assert.equal(special?.ruleId, 'rate-budget')
 })
 

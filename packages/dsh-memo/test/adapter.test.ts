@@ -39,8 +39,8 @@ test('store then hit: hint mode denies with cached preview and fresh-flag guidan
   const cfg: MemoConfig = { enabled: true, mode: 'hint', excludeTools: [] }
   const { listeners } = setup(cfg, dir)
   post(listeners)({ tool: 'read_file', args: { path: '/a' }, result: 'file body' })
-  const v = pre(listeners)({ tool: 'read_file', args: { path: '/a' } }) as { decision: string; reason: string }
-  assert.equal(v.decision, 'deny')
+  const v = pre(listeners)({ tool: 'read_file', args: { path: '/a' } }) as { kind: string; reason: string }
+  assert.equal(v.kind, 'deny')
   assert.match(v.reason, /cache HIT/)
   assert.match(v.reason, /file body/)
   assert.match(v.reason, /_memoFresh/)
@@ -92,8 +92,8 @@ test('inject mode carries the cached result', () => {
   const cfg: MemoConfig = { enabled: true, mode: 'inject', excludeTools: [] }
   const { listeners } = setup(cfg, dir)
   post(listeners)({ tool: 'read_file', args: { path: '/a' }, result: { body: 'x' } })
-  const v = pre(listeners)({ tool: 'read_file', args: { path: '/a' } }) as { decision: string; result: unknown; memoized: boolean }
-  assert.equal(v.decision, 'allow')
+  const v = pre(listeners)({ tool: 'read_file', args: { path: '/a' } }) as { kind: string; result: unknown; memoized: boolean }
+  assert.equal(v.kind, 'allow')
   assert.equal(v.memoized, true)
   assert.deepEqual(v.result, { body: 'x' })
 })
@@ -122,7 +122,10 @@ test('unrecognized payloads never throw', () => {
   const cfg: MemoConfig = { enabled: true }
   const { listeners } = setup(cfg, dir)
   assert.equal(pre(listeners)('garbage'), undefined)
-  assert.equal(post(listeners)({}), undefined)
+  // post-execute is a waterfall: returning nothing would hand the harness
+  // `undefined` and crash it, so an unrecognized payload still yields the
+  // default accept decision.
+  assert.deepEqual(post(listeners)({}), { kind: 'accept' })
 })
 
 test('compileGlob semantics match pii package', () => {

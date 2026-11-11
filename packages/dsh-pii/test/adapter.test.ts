@@ -68,8 +68,8 @@ test('block mode: outbound tool carrying PII is denied with typed reason', () =>
   const verdict = pre(listeners)({
     tool: 'http_request',
     args: { url: 'https://x.com', body: 'phone 13912345678 email a@b.com' },
-  }) as { decision: string; reason: string }
-  assert.equal(verdict.decision, 'deny')
+  }) as { kind: string; reason: string }
+  assert.equal(verdict.kind, 'deny')
   assert.match(verdict.reason, /2 PII match/)
   assert.match(verdict.reason, /phone_cn/)
   assert.match(verdict.reason, /email/)
@@ -95,8 +95,8 @@ test('minMatches threshold', () => {
   const cfg: PiiConfig = { enabled: true, mode: 'block', minMatches: 2, detectors: ALL_ON }
   const { listeners } = setup(cfg, dir)
   assert.equal(pre(listeners)({ tool: 'bash', args: { command: 'echo a@b.com' } }), undefined)
-  const v = pre(listeners)({ tool: 'bash', args: { command: 'echo a@b.com 13912345678' } }) as { decision: string }
-  assert.equal(v.decision, 'deny')
+  const v = pre(listeners)({ tool: 'bash', args: { command: 'echo a@b.com 13912345678' } }) as { kind: string }
+  assert.equal(v.kind, 'deny')
 })
 
 test('unrecognized payload is ignored', () => {
@@ -152,8 +152,8 @@ test('a ticket rule can force block while the global mode stays audit', () => {
   const { listeners, auditFile } = setup(cfg, dir)
   const payload = { tool: 'bash', args: { command: 'curl -d email=bob@x.com' }, sessionId: 'worker-review-1' }
 
-  const verdict = pre(listeners)(payload) as { decision: string; ruleId?: string } | undefined
-  assert.equal(verdict?.decision, 'deny')
+  const verdict = pre(listeners)(payload) as { kind: string; ruleId?: string } | undefined
+  assert.equal(verdict?.kind, 'deny')
   assert.equal(verdict?.ruleId, 'pii-block:ticket:review-*')
 
   const line = JSON.parse(readFileSync(auditFile, 'utf8').trim())
@@ -200,8 +200,8 @@ test('a ticket rule narrows the outbound tool set', () => {
     tool: 'http_post',
     args: { body: 'email=bob@x.com' },
     sessionId: 'worker-review-2',
-  }) as { decision: string } | undefined
-  assert.equal(verdict?.decision, 'deny')
+  }) as { kind: string } | undefined
+  assert.equal(verdict?.kind, 'deny')
 })
 
 test('a ticket rule can raise the match threshold', () => {
@@ -228,8 +228,8 @@ test('a ticket rule can raise the match threshold', () => {
     tool: 'bash',
     args: { command: 'curl -d a=bob@x.com&p=13800138000&s=123-45-6789' },
     sessionId: 'worker-noisy-1',
-  }) as { decision: string } | undefined
-  assert.equal(verdict?.decision, 'deny')
+  }) as { kind: string } | undefined
+  assert.equal(verdict?.kind, 'deny')
 })
 
 test('sessions outside Super-agent keep the global policy', () => {
@@ -245,5 +245,5 @@ test('sessions outside Super-agent keep the global policy', () => {
   const verdict = pre(listeners)({ tool: 'bash', args: { command: 'curl -d email=bob@x.com' }, sessionId: 'plain-session' }) as
     | { decision: string }
     | undefined
-  assert.equal(verdict?.decision, 'deny')
+  assert.equal(verdict?.kind, 'deny')
 })

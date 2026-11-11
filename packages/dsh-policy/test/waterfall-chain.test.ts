@@ -38,9 +38,9 @@ test('a permissive policy layer still lets a later deny rule speak', () => {
     'tools/pre-execute',
     { tool: 'bash', args: { command: 'git push origin main' }, sessionId: 's1' },
     () => undefined,
-  ) as { decision?: string; ruleId?: string } | undefined
+  ) as { kind?: string; ruleId?: string } | undefined
 
-  assert.equal(verdict?.decision, 'deny')
+  assert.equal(verdict?.kind, 'deny')
   assert.equal(verdict?.ruleId, 'deny-push')
 })
 
@@ -66,9 +66,9 @@ test('an allow from an earlier layer does not short-circuit a later deny', () =>
     'tools/pre-execute',
     { tool: 'bash', args: { command: 'git push origin main' }, sessionId: 's1' },
     () => undefined,
-  ) as { decision?: string } | undefined
+  ) as { kind?: string } | undefined
 
-  assert.equal(verdict?.decision, 'deny')
+  assert.equal(verdict?.kind, 'deny')
 })
 
 test('with nothing to say the chain reaches the innermost handler', () => {
@@ -82,7 +82,7 @@ test('with nothing to say the chain reaches the innermost handler', () => {
     { tool: 'read', args: { path: 'a.ts' }, sessionId: 's1' },
     () => {
       reached = true
-      return { decision: 'deny', ruleId: 'harness-default' }
+      return { kind: 'deny', ruleId: 'harness-default' }
     },
   ) as { ruleId?: string } | undefined
 

@@ -188,13 +188,16 @@ async function replay({ governed, port }) {
       continue
     }
     // `tools/pre-execute` is a waterfall: the last argument is the innermost
-    // `next`, and a listener returning a verdict short-circuits the call.
-    const verdict = ctx.waterfall('tools/pre-execute', { tool: step.tool, args: step.args, sessionId: step.s }, () => undefined)
+    // `next`, and a listener returning a verdict short-circuits the call. The
+    // innermost value mirrors the harness, which defaults to `{ kind: 'allow' }`
+    // — see @deepseek-ai/dsh-tools' prepareExecution.
+    const exec = { name: step.tool, arguments: step.args, sessionId: step.s }
+    const verdict = ctx.waterfall('tools/pre-execute', exec, () => ({ kind: 'allow' }))
     const layer = layerOf(verdict)
     outcomes.push({ step, verdict: verdict ?? null, layer })
-    // A denied call never runs, so no result arrives for it. An explicit
-    // `{ decision: 'allow' }` (policy's default verdict) still means "ran".
-    const ran = !verdict || verdict.decision === 'allow'
+    // A denied call never runs, so no result arrives for it. Only an explicit
+    // allow means the harness went on to dispatch the tool.
+    const ran = !verdict || verdict.kind === 'allow'
     if (!ran) continue
 
     // Report the call to the trace stream the way the harness does: a start
@@ -221,7 +224,16 @@ async function replay({ governed, port }) {
         args: step.args,
         result: step.output,
       })
-      ctx.emit('tools/post-execute', { tool: step.tool, args: step.args, output: step.output, sessionId: step.s })
+      // `tools/post-execute` is a waterfall in the harness too: it is called
+      // with (exec, result, next) and its return value becomes the harness's
+      // decision. Calling it through `emit` — as this script used to — would
+      // exercise a contract the harness does not have.
+      ctx.waterfall(
+        'tools/post-execute',
+        exec,
+        { content: [{ type: 'text', text: String(step.output) }], isError: false },
+        () => ({ kind: 'accept' }),
+      )
     }
   }
 

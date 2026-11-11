@@ -18,7 +18,8 @@ import type { TicketScopeHandle } from './ticket-scope.js'
  */
 
 export interface MemoVerdict {
-  decision: 'allow' | 'deny'
+  /** `tools/pre-execute` is discriminated by `kind`; the harness reads it directly. */
+  kind: 'allow' | 'deny'
   reason?: string
   result?: unknown
   memoized?: boolean
@@ -59,7 +60,7 @@ export const DEFAULT_EXCLUDE_TOOLS = [
 ]
 
 export function attachMemo(ctx: {
-  on(event: string, listener: (payload: unknown, next?: () => unknown) => unknown): void
+  on(event: string, listener: (...args: any[]) => unknown): void
 }, deps: MemoDeps): void {
   const { config, store, audit, logger, ticketScope } = deps
   // schemastery fills an absent array with `[]`, so `??` would silently turn
@@ -111,17 +112,19 @@ export function attachMemo(ctx: {
     audit.log({ event: 'hit', tool: call.tool, key: entry.key, session_id: call.sessionId, age_ms: ageMs, ...(bucket ? { bucket } : {}) })
     logger.info(`[dsh-tool-memo] hit ${call.tool} (age ${Math.round(ageMs / 1000)}s)`)
     if (injectMode) {
-      // EXPERIMENTAL: relies on the harness forwarding verdict.result to the
-      // model. On harnesses that ignore it the call simply re-executes.
+      // The harness's pre-execute gate only understands allow/deny/ask/cancel;
+      // it does not forward `result` to the model. This branch is kept for
+      // harnesses that do, and is honestly documented as best-effort — on the
+      // stock harness the call simply re-executes.
       return {
-        decision: 'allow',
+        kind: 'allow',
         result: entry.value,
         memoized: true,
         ruleId: 'memo-inject',
       }
     }
     return {
-      decision: 'deny',
+      kind: 'deny',
       reason:
         `[dsh-tool-memo] cache HIT for '${call.tool}' (age ${Math.round(ageMs / 1000)}s): ${preview(entry.value)} — ` +
         `use this cached result; re-run with {"${freshFlag}": true} in the arguments to force a fresh execution.`,
@@ -130,26 +133,36 @@ export function attachMemo(ctx: {
     }
   })
 
-  ctx.on('tools/post-execute', (payload: unknown) => {
-    const result = parseToolResult(payload)
-    if (!result) return
-    if (!cacheable(result.tool)) return
-    if (result.error) {
-      audit.log({ event: 'skip', tool: result.tool, key: '-', session_id: result.sessionId, reason: `error result not cached: ${result.error}` })
-      return
+  // `tools/post-execute` is a waterfall: the harness reads `decision.kind` and
+  // `decision.additionalContexts` off our return value, so returning nothing
+  // would hand it `undefined` and break every tool call. The chain is always
+  // handed on, and the store is filled before it is.
+  ctx.on('tools/post-execute', (exec: unknown, rawResult: unknown, next?: () => unknown) => {
+    try {
+      const result = parseToolResult(exec, rawResult)
+      if (result && cacheable(result.tool)) {
+        if (result.error) {
+          audit.log({ event: 'skip', tool: result.tool, key: '-', session_id: result.sessionId, reason: `error result not cached: ${result.error}` })
+        } else {
+          const bucket = ticketScope?.bucketOf(result.sessionId) ?? ''
+          const entry = store.store(result.tool, result.args, result.output, Date.now(), bucket)
+          if (entry) {
+            audit.log({
+              event: 'store',
+              tool: result.tool,
+              key: entry.key,
+              session_id: result.sessionId,
+              reason: `ttl=${store.ttlFor(result.tool)}ms`,
+              ...(bucket ? { bucket } : {}),
+            })
+          }
+        }
+      }
+    } catch (err) {
+      // Filling the cache must never be the reason a tool call fails.
+      logger.warn(`[dsh-tool-memo] post-execute store failed: ${(err as Error).message}`)
     }
-    const bucket = ticketScope?.bucketOf(result.sessionId) ?? ''
-    const entry = store.store(result.tool, result.args, result.output, Date.now(), bucket)
-    if (entry) {
-      audit.log({
-        event: 'store',
-        tool: result.tool,
-        key: entry.key,
-        session_id: result.sessionId,
-        reason: `ttl=${store.ttlFor(result.tool)}ms`,
-        ...(bucket ? { bucket } : {}),
-      })
-    }
+    return next?.() ?? { kind: 'accept' }
   })
 }
 
@@ -186,23 +199,35 @@ export function parseToolCall(payload: unknown): ParsedCall | null {
   return { tool, args, sessionId: firstString(rec.sessionId, rec.session_id, rec.session) }
 }
 
-export function parseToolResult(payload: unknown): {
+/**
+ * `tools/post-execute` delivers the execution and its result as two separate
+ * arguments: the tool identity and arguments come from `exec`, the value to
+ * cache from `result`.
+ */
+export function parseToolResult(exec: unknown, result?: unknown): {
   tool: string
   args: unknown
   output: unknown
   error?: string
   sessionId?: string
 } | null {
-  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) return null
-  const rec = payload as Record<string, unknown>
-  const tool = firstString(rec.tool, rec.toolName, rec.tool_name, rec.name)
-  if (!tool) return null
+  const call = parseToolCall(exec)
+  if (!call) return null
+  const payload = result !== undefined ? result : exec
+  const rec = typeof payload === 'object' && payload !== null && !Array.isArray(payload)
+    ? (payload as Record<string, unknown>)
+    : undefined
+  const error = rec
+    ? firstString(rec.error, rec.err) ??
+      (typeof rec.error === 'object' && rec.error !== null ? firstString((rec.error as Record<string, unknown>).message) : undefined) ??
+      (rec.isError === true ? 'tool reported isError' : undefined)
+    : undefined
   return {
-    tool,
-    args: rec.args ?? rec.input ?? rec.arguments,
-    output: rec.result ?? rec.output ?? rec.content,
-    error: firstString(rec.error, rec.err),
-    sessionId: firstString(rec.sessionId, rec.session_id, rec.session),
+    tool: call.tool,
+    args: call.args,
+    output: rec ? rec.result ?? rec.output ?? rec.content ?? rec.value ?? rec : payload,
+    error,
+    sessionId: call.sessionId,
   }
 }
 

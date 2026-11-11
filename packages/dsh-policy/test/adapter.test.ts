@@ -61,22 +61,22 @@ test('pre-execute: deny returns deny verdict', () => {
   const { listeners } = setup(mkdtempSync(join(tmpdir(), 'dsh-adapter-')))
   const pre = listeners.find((l) => l.event === 'tools/pre-execute')!
   const verdict = pre.fn({ tool: 'bash', args: { command: 'git push --force origin main' }, sessionId: 's1' })
-  assert.equal((verdict as { decision: string }).decision, 'deny')
+  assert.equal((verdict as { kind: string }).kind, 'deny')
   assert.equal((verdict as { ruleId?: string }).ruleId, 'deny-force-push')
 })
 
 test('pre-execute: allow short-circuits allowed dev commands', () => {
   const { listeners } = setup(mkdtempSync(join(tmpdir(), 'dsh-adapter-')))
   const pre = listeners.find((l) => l.event === 'tools/pre-execute')!
-  const verdict = pre.fn({ tool: 'bash', args: { command: 'pnpm test' } }) as { decision: string }
-  assert.equal(verdict.decision, 'allow')
+  const verdict = pre.fn({ tool: 'bash', args: { command: 'pnpm test' } }) as { kind: string }
+  assert.equal(verdict.kind, 'allow')
 })
 
 test('pre-execute: unmatched call falls back to default ask', () => {
   const { listeners } = setup(mkdtempSync(join(tmpdir(), 'dsh-adapter-')))
   const pre = listeners.find((l) => l.event === 'tools/pre-execute')!
-  const verdict = pre.fn({ tool: 'web_search', args: { query: 'weather' } }) as { decision: string }
-  assert.equal(verdict.decision, 'ask')
+  const verdict = pre.fn({ tool: 'web_search', args: { query: 'weather' } }) as { kind: string }
+  assert.equal(verdict.kind, 'ask')
 })
 
 test('pre-execute: unrecognized payload is passed through untouched', () => {

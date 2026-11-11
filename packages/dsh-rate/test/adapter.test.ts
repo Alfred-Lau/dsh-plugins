@@ -57,8 +57,8 @@ test('enforce mode: call inside backoff window is denied', () => {
   const cfg: RateConfig = { enabled: true, mode: 'enforce' }
   const { listeners } = setup(cfg, dir)
   evt(listeners)(llm429)
-  const v = pre(listeners)({ tool: 'bash', args: {} }) as { decision: string; ruleId: string; reason: string }
-  assert.equal(v.decision, 'deny')
+  const v = pre(listeners)({ tool: 'bash', args: {} }) as { kind: string; ruleId: string; reason: string }
+  assert.equal(v.kind, 'deny')
   assert.equal(v.ruleId, 'rate-backoff')
   assert.match(v.reason, /backoff window open/)
 })
@@ -83,8 +83,8 @@ test('budget: warns at warnAt and denies at 100% with block-tools', () => {
   evt(listeners)(llmOk) // 150 tokens => 75%, below warnAt
   assert.equal(pre(listeners)({ tool: 'bash', args: {} }), undefined)
   evt(listeners)({ type: 'assistant/message', usage: { input_tokens: 60, output_tokens: 0 } }) // total 210 >= 200
-  const v = pre(listeners)({ tool: 'bash', args: {} }) as { decision: string; ruleId: string }
-  assert.equal(v.decision, 'deny')
+  const v = pre(listeners)({ tool: 'bash', args: {} }) as { kind: string; ruleId: string }
+  assert.equal(v.kind, 'deny')
   assert.equal(v.ruleId, 'rate-budget')
   assert.ok(logger.warnings.some((w: string) => /token budget at \d+%/.test(w)))
 })
@@ -103,8 +103,8 @@ test('tool storm: over-limit calls denied in enforce', () => {
   const { listeners } = setup(cfg, dir)
   assert.equal(pre(listeners)({ tool: 'read', args: { i: 1 } }), undefined)
   assert.equal(pre(listeners)({ tool: 'read', args: { i: 2 } }), undefined)
-  const v = pre(listeners)({ tool: 'read', args: { i: 3 } }) as { decision: string; ruleId: string }
-  assert.equal(v.decision, 'deny')
+  const v = pre(listeners)({ tool: 'read', args: { i: 3 } }) as { kind: string; ruleId: string }
+  assert.equal(v.kind, 'deny')
   assert.equal(v.ruleId, 'rate-storm')
 })
 

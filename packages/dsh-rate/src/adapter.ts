@@ -25,7 +25,8 @@ import { bucketOf, type TicketScopeHandle } from './ticket-scope.js'
  */
 
 export interface RateVerdict {
-  decision: 'allow' | 'deny'
+  /** `tools/pre-execute` is discriminated by `kind`; the harness reads it directly. */
+  kind: 'allow' | 'deny'
   reason?: string
   ruleId?: string
 }
@@ -41,7 +42,7 @@ export interface RateDeps {
 }
 
 export function attachRateShield(ctx: {
-  on(event: string, listener: (payload: unknown, next?: () => unknown) => unknown): void
+  on(event: string, listener: (...args: any[]) => unknown): void
 }, deps: RateDeps): void {
   const { config, meter, backoff, audit, logger, ticketScope } = deps
   const mode: RateMode = config.mode ?? 'monitor'
@@ -131,7 +132,7 @@ export function attachRateShield(ctx: {
       if (effectiveMode === 'enforce') {
         logger.warn(`[dsh-rate-shield] denying ${call.tool}: 429 backoff for another ${Math.round(backoffLeft / 1000)}s`)
         return {
-          decision: 'deny',
+          kind: 'deny',
           reason:
             `[dsh-rate-shield] rate backoff window open (${Math.round(backoffLeft / 1000)}s left after a 429). ` +
             `Wait for the window to close, then retry.`,
@@ -155,7 +156,7 @@ export function attachRateShield(ctx: {
         if (effectiveMode === 'enforce' && criticalBlock) {
           logger.warn(`[dsh-rate-shield] denying ${call.tool}: ticket ${bucket} budget exhausted (${used}/${ticketBudget})`)
           return {
-            decision: 'deny',
+            kind: 'deny',
             reason:
               `[dsh-rate-shield] ticket ${bucket} token budget exhausted (${used}/${ticketBudget}). ` +
               `Raise ticket.rules[].dailyTokens for this ticket or wait for the UTC reset.`,
@@ -172,7 +173,7 @@ export function attachRateShield(ctx: {
         if (effectiveMode === 'enforce' && criticalBlock) {
           logger.warn(`[dsh-rate-shield] denying ${call.tool}: daily token budget exhausted (${used}/${dailyTokens})`)
           return {
-            decision: 'deny',
+            kind: 'deny',
             reason: `[dsh-rate-shield] daily token budget exhausted (${used}/${dailyTokens}). Raise budget.dailyTokens or wait for the UTC reset.`,
             ruleId: 'rate-budget',
           }
@@ -194,7 +195,7 @@ export function attachRateShield(ctx: {
         if (effectiveMode === 'enforce') {
           const who = bucket ? `ticket ${bucket}` : 'this session'
           return {
-            decision: 'deny',
+            kind: 'deny',
             reason: `[dsh-rate-shield] tool-call storm on ${who}: ${calls} calls in the last ${Math.round(windowMs / 1000)}s (limit ${effectiveMaxCalls}). Slow down.`,
             ruleId: bucket ? `rate-storm:ticket:${rule?.match ?? bucket}` : 'rate-storm',
           }

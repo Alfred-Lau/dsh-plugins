@@ -13,17 +13,24 @@ import type { TicketDenyVerdict } from './ticket-rules.js'
  *                   -> tools/execute -> provider implementation
  *                   -> tools/post-execute -> durable tool result
  *
- * `tools/pre-execute` is a waterfall channel: a listener may return a
- * decision object that short-circuits execution. `tools/post-execute` fires
- * with the durable result and enriches the audit trail.
+ * `tools/pre-execute` and `tools/post-execute` are cordis *waterfalls*, not
+ * broadcasts. That has two consequences this file has to honour:
  *
- * Listeners are deliberately defensive: any unexpected payload shape is
- * ignored (the built-in approval chain keeps handling the call) — policy
- * plugins must never crash the harness hot path.
+ *   1. A listener that does not own the decision must return `next()`. A bare
+ *      `return` ends the chain and hands the harness `undefined`, which it then
+ *      dereferences (`gate.kind`, `decision.additionalContexts`) and crashes.
+ *   2. The decision object is discriminated by `kind`, not by a field of our
+ *      choosing — the harness reads `gate.kind === 'ask'` and
+ *      `decision.kind === 'allow'` directly.
+ *
+ * Listeners are deliberately defensive: an unexpected payload shape is passed
+ * straight through (the built-in approval chain keeps handling the call) —
+ * policy plugins must never crash the harness hot path.
  */
 
+/** The shape `tools/pre-execute` must return. `ruleId` is ours; the harness ignores it. */
 export interface PolicyVerdict {
-  decision: 'allow' | 'deny' | 'ask'
+  kind: 'allow' | 'deny' | 'ask' | 'cancel'
   reason?: string
   ruleId?: string
 }
@@ -36,14 +43,14 @@ export interface PolicyVerdict {
 export type TicketGate = (call: ToolCallInput) => TicketDenyVerdict | undefined
 
 export function attachPolicy(ctx: {
-  on(event: string, listener: (payload: unknown, next?: () => unknown) => unknown): void
+  on(event: string, listener: (...args: any[]) => unknown): void
 }, evaluator: PolicyEvaluator, audit: AuditLogger, logger: LoggerService, ticketGate?: TicketGate): void {
   // Cordis waterfall: `allow` here means "this layer has no objection", not
   // "the call is approved". The chain is handed to `next()` so plugins
   // registered later (or the harness's own default handler) still decide.
-  ctx.on('tools/pre-execute', (payload: unknown, next?: () => unknown): PolicyVerdict | undefined => {
+  ctx.on('tools/pre-execute', (exec: unknown, next?: () => unknown): PolicyVerdict | undefined => {
     const pass = () => (next?.() ?? undefined) as PolicyVerdict | undefined
-    const call = parseToolCall(payload)
+    const call = parseToolCall(exec)
     if (!call) {
       logger.debug('[dsh-policy] pre-execute payload not recognized; letting the pipeline continue')
       return pass()
@@ -73,7 +80,7 @@ export function attachPolicy(ctx: {
           rule_id: denied.ruleId,
           reason: denied.reason,
         })
-        return { decision: 'deny', reason: denied.reason, ruleId: denied.ruleId }
+        return { kind: 'deny', reason: denied.reason ?? 'blocked by dsh-policy', ruleId: denied.ruleId }
       }
     }
 
@@ -91,60 +98,72 @@ export function attachPolicy(ctx: {
       case 'allow':
         // Pass the chain on; fall back to our own allow verdict when this is
         // the only plugin in the pipeline.
-        return pass() ?? { decision: 'allow', ruleId: decision.ruleId }
+        return pass() ?? { kind: 'allow', ruleId: decision.ruleId }
       case 'deny':
         return {
-          decision: 'deny',
+          kind: 'deny',
           reason: decision.reason ?? 'blocked by dsh-policy',
           ruleId: decision.ruleId,
         }
       case 'ask':
         return {
-          decision: 'ask',
+          kind: 'ask',
           reason: decision.reason ?? 'requires approval (dsh-policy)',
           ruleId: decision.ruleId,
         }
     }
   })
 
-  ctx.on('tools/post-execute', (payload: unknown) => {
-    const result = parseToolResult(payload)
-    if (!result) return
-    audit.log({
-      phase: 'outcome',
-      session_id: result.sessionId,
-      tool: result.tool,
-      args_hash: result.argsHash,
-      outcome: result.outcome,
-    })
+  // `tools/post-execute` is a waterfall too: the harness reads
+  // `decision.kind === 'block'` and `decision.additionalContexts` off whatever
+  // we return. Returning nothing replaces its `{ kind: 'accept' }` with
+  // `undefined` and takes down every tool call, so the chain always gets `next()`.
+  ctx.on('tools/post-execute', (exec: unknown, result: unknown, next?: () => unknown) => {
+    try {
+      const parsed = parseToolResult(exec, result)
+      if (parsed) {
+        audit.log({
+          phase: 'outcome',
+          session_id: parsed.sessionId,
+          tool: parsed.tool,
+          args_hash: parsed.argsHash,
+          outcome: parsed.outcome,
+        })
+      }
+    } catch (err) {
+      // Auditing must never be the reason a tool call fails.
+      logger.warn(`[dsh-policy] post-execute audit failed: ${(err as Error).message}`)
+    }
+    return next?.() ?? { kind: 'accept' }
   })
 }
 
-function parseToolCall(payload: unknown): ToolCallInput | null {
-  if (!isRecord(payload)) return null
+function parseToolCall(exec: unknown): ToolCallInput | null {
+  if (!isRecord(exec)) return null
+  // `ToolExecution` exposes `name` and `arguments`; the other spellings are
+  // kept so the adapter also works against hand-built payloads in tests.
   const tool =
-    firstString(payload.tool, payload.toolName, payload.tool_name, payload.name) ??
-    (isRecord(payload.call) ? firstString(payload.call.tool, payload.call.toolName) : undefined)
+    firstString(exec.name, exec.tool, exec.toolName, exec.tool_name) ??
+    (isRecord(exec.call) ? firstString(exec.call.tool, exec.call.toolName) : undefined)
   if (!tool) return null
   const args =
-    payload.args ?? payload.input ?? payload.arguments ??
-    (isRecord(payload.call) ? payload.call.args ?? payload.call.input : undefined)
-  const sessionId = firstString(payload.sessionId, payload.session_id, payload.session)
+    exec.arguments ?? exec.args ?? exec.input ??
+    (isRecord(exec.call) ? exec.call.args ?? exec.call.input : undefined)
+  const sessionId = firstString(exec.sessionId, exec.session_id, exec.session)
   return { tool, args, sessionId }
 }
 
-function parseToolResult(payload: unknown): { tool: string; sessionId?: string; argsHash?: string; outcome: string } | null {
-  if (!isRecord(payload)) return null
-  const tool = firstString(payload.tool, payload.toolName, payload.tool_name, payload.name)
-  if (!tool) return null
-  const error = firstString(payload.error)
-  const status = firstString(payload.status)
-  const outcome = error ? `error: ${error}` : status ?? 'ok'
-  return {
-    tool,
-    sessionId: firstString(payload.sessionId, payload.session_id, payload.session),
-    outcome,
+function parseToolResult(exec: unknown, result: unknown): { tool: string; sessionId?: string; argsHash?: string; outcome: string } | null {
+  const call = parseToolCall(exec)
+  if (!call) return null
+  let outcome = 'ok'
+  if (isRecord(result)) {
+    const error = isRecord(result.error) ? firstString(result.error.message) : firstString(result.error)
+    const status = firstString(result.status)
+    if (result.isError === true || error) outcome = `error: ${error ?? 'unknown'}`
+    else if (status) outcome = status
   }
+  return { tool: call.tool, sessionId: call.sessionId, outcome }
 }
 
 function firstString(...vals: unknown[]): string | undefined {

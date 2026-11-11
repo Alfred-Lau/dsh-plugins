@@ -49,8 +49,8 @@ test('a ticket rule that only sets mode inherits the global outbound tool set', 
     tool: 'bash',
     args: { command: 'gh pr comment --body "bob@example.com"' },
     sessionId: 'worker-t-1043',
-  }) as { decision?: string; ruleId?: string } | undefined
-  assert.equal(verdict?.decision, 'deny')
+  }) as { kind?: string; ruleId?: string } | undefined
+  assert.equal(verdict?.kind, 'deny')
   assert.equal(verdict?.ruleId, 'pii-block:ticket:t-1043')
 })
 
@@ -67,8 +67,8 @@ test('an explicitly empty outboundTools list on a rule still inherits', () => {
     tool: 'bash',
     args: { command: 'gh pr comment --body "bob@example.com"' },
     sessionId: 'worker-t-1043',
-  }) as { decision?: string } | undefined
-  assert.equal(verdict?.decision, 'deny')
+  }) as { kind?: string } | undefined
+  assert.equal(verdict?.kind, 'deny')
 })
 
 test('a rule that narrows outboundTools really does narrow them', () => {
@@ -84,6 +84,6 @@ test('a rule that narrows outboundTools really does narrow them', () => {
     tool: 'bash',
     args: { command: 'gh pr comment --body "bob@example.com"' },
     sessionId: 'worker-t-1043',
-  }) as { decision?: string } | undefined
+  }) as { kind?: string } | undefined
   assert.equal(verdict, undefined, "bash is outside this ticket's narrowed set")
 })
