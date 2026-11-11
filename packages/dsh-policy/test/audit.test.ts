@@ -22,7 +22,9 @@ test('writes JSONL entries with ts and policy version', () => {
   assert.equal(first.phase, 'decision')
   assert.equal(first.decision, 'deny')
   assert.ok(first.ts)
-  assert.match(first.policy_version, /^dsh-policy@\d/)
+  // The npm name, not the short handle: this string is what an operator greps
+  // for when they need to know which build produced the decision.
+  assert.match(first.policy_version, /^dsh-tool-policy@\d+\.\d+\.\d+$/)
 })
 
 test('hashArgs produces a stable short digest and never throws', () => {

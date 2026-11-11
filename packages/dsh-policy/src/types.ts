@@ -102,7 +102,11 @@ export interface AuditEntry {
   policy_version: string
 }
 
-export const POLICY_VERSION = 'dsh-policy@0.1.0'
+// Stamped onto every audit line. It has to track package.json: an operator
+// reading the log while debugging a rule that "does not fire" will check this
+// first, and a stale value sends them to the wrong version. `version.test.ts`
+// fails when the two drift apart.
+export const POLICY_VERSION = 'dsh-tool-policy@0.2.0'
 
 export const DEFAULT_PATH_ARGS = ['path', 'file_path', 'filepath', 'filename', 'file', 'dir', 'directory', 'target'] as const
 
