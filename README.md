@@ -68,6 +68,19 @@ through the real plugins, so every number above comes out of the plugins' own
 code paths. `node examples/superagent-governance/run.mjs` prints both passes
 plus the per-ticket cost table.
 
+### Then we mounted them on a real harness
+
+The replay proves the plugins' logic. It cannot prove the contract, because the
+replay feeds events in the shape we wrote down — if we wrote it down wrong, the
+replay agrees with us. So we put all seven on an actual dsh, ran an actual
+agent, and found **five plugins reading fields that do not exist**. Unit tests
+were green throughout.
+
+[`docs/real-harness.md`](./docs/real-harness.md) is the result: the ten hooks
+as actually observed, where the session id really lives, why `session/flush` is
+not an end-of-session signal, and the event payload shapes verbatim. If you are
+writing a dsh plugin, read it before you trust any interface you inferred.
+
 ## Quick start
 
 ```bash
