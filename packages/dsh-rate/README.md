@@ -56,15 +56,51 @@ Pair with `@goodandready/dsh-key-rotation` for multi-key setups.
     budget: { dailyTokens: 0, warnAt: 0.8, criticalAction: log }   # 0 = off
     toolStorm: { windowMs: 60000, maxCalls: 0 }                    # 0 = off
     audit: { enabled: true }    # default file: <cwd>/.dsh-rate-shield/audit.jsonl
+    ticket:
+      enabled: true
+      masterId: ""              # router Session id; empty = workers only
+      rules:
+        - { match: "fix-*",   dailyTokens: 200000, maxCalls: 40 }
+        - { match: "review-*", dailyTokens: 100000, maxCalls: 20, mode: enforce }
 ```
 
 > A profile-level patch targeting `id: dsh-rate` replaces the WHOLE config
 > row (no deep merge) — restate every key you want to keep.
 
+## Per-ticket budgets (dsh-superagent)
+
+A single daily budget answers the wrong question once tickets run in parallel:
+one runaway ticket spends the whole allowance and every other ticket stalls
+with it. With `ticket.rules`, every counter — tokens and tool calls — is also
+bucketed per ticket, so a ticket can only exhaust **its own** allowance.
+
+| Rule key | Effect |
+| --- | --- |
+| `dailyTokens` | This ticket's per-UTC-day token allowance |
+| `maxCalls` | This ticket's tool-call limit per `toolStorm.windowMs` |
+| `mode` | `monitor` / `enforce` for this ticket only |
+
+The ticket comes from the `worker-<ticketId>` Session naming
+`dsh-superagent` already uses, or from `dsh-ticket-context` when loaded. Rules
+match on the ticket id (`*`, `?`, `**` globs, first match wins); the router
+matches the literal `router`.
+
+Two deliberate asymmetries:
+
+- **429 backoff stays global.** The limit that produced it is the model's, not
+  a ticket's — letting one ticket ignore it would just keep the 429s coming.
+- **The tighter of the two budgets governs.** A ticket with a generous
+  allowance still stops when the global budget is spent, and vice versa. The
+  deny reason names whichever ran out.
+
+Audit lines gain `ticket_id` / `ticket_role`, and usage lines add
+`ticket_tokens_today`, so `jq 'select(.ticket_id=="t-42")'` gives one ticket's
+spend.
+
 ## Audit format (JSONL)
 
 ```json
-{"ts":"2026-09-19T12:00:00.000Z","rate_version":"0.1.0","event":"backoff_deny","tool":"bash","backoff_remaining_ms":28123}
+{"ts":"2026-09-19T12:00:00.000Z","rate_version":"0.1.0","event":"backoff_deny","tool":"bash","backoff_remaining_ms":28123,"ticket_id":"t-42","ticket_role":"worker"}
 ```
 
 Events: `llm_usage` · `llm_429` · `llm_ok` · `budget_warn` · `budget_deny` · `backoff_deny` · `storm_hit` · `storm_deny`.

@@ -45,6 +45,8 @@ export interface RateConfig {
   budget?: BudgetConfig
   toolStorm?: ToolStormConfig
   audit?: RateAuditConfig
+  /** Per-ticket bucketing and allowances for dsh-superagent Sessions. */
+  ticket?: import('./ticket-scope.js').TicketRateConfig
 }
 
 export interface RateAuditEntry {
@@ -57,5 +59,9 @@ export interface RateAuditEntry {
   tokens_today?: number
   backoff_remaining_ms?: number
   window_calls?: number
+  /** dsh-superagent ticket the entry belongs to. */
+  ticket_id?: string
+  ticket_role?: 'router' | 'worker'
+  ticket_tokens_today?: number
   reason?: string
 }

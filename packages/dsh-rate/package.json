@@ -1,7 +1,7 @@
 {
   "name": "dsh-rate-shield",
-  "version": "0.1.1",
-  "description": "Rate & budget governance for DeepSeek Harness — 429 backoff windows, daily token budgets, tool-call storm control; monitor by default, enforce opt-in, JSONL audit.",
+  "version": "0.2.0",
+  "description": "Rate & budget governance for DeepSeek Harness — 429 backoff windows, daily token budgets, tool-call storm control; monitor by default, enforce opt-in, JSONL audit. Per-ticket token and tool-call budgets for dsh-superagent tickets.",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",

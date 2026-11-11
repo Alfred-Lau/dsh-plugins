@@ -19,6 +19,19 @@ export const Config: Schema<RateConfig> = Schema.object({
     windowMs: Schema.number().default(60_000),
     maxCalls: Schema.number().default(0),
   }),
+  ticket: Schema.object({
+    enabled: Schema.boolean().default(true),
+    masterId: Schema.string().default(''),
+    workerPrefix: Schema.string().default('worker-'),
+    rules: Schema.array(
+      Schema.object({
+        match: Schema.string().required(),
+        dailyTokens: Schema.number().min(0),
+        maxCalls: Schema.number().min(0),
+        mode: Schema.union(['monitor', 'enforce'] as const),
+      }),
+    ).default([]),
+  }),
   audit: Schema.object({
     enabled: Schema.boolean().default(true),
     file: Schema.string().default(''),

@@ -6,10 +6,16 @@
  *   - a timestamp list of observed 429s / LLM completions,
  *   - a per-UTC-day token total (input + output),
  *   - a rolling window of tool-call timestamps (storm control).
+ *
+ * Every counter is bucketed: `global` holds the whole process, and each
+ * dsh-superagent ticket gets its own bucket so one runaway ticket cannot spend
+ * another ticket's allowance or trip its storm window.
  */
 export class UsageMeter {
+  /** `${dayKey}\u0000${bucket}` -> tokens */
   private tokensByDay = new Map<string, number>()
-  private toolCalls: number[] = []
+  /** bucket -> tool-call timestamps */
+  private toolCalls = new Map<string, number[]>()
   private todayKey = ''
 
   /** Projected from a session/event payload; returns tokens when found. */
@@ -32,35 +38,36 @@ export class UsageMeter {
     return { tokens, isError: errText.length > 0, isRateLimited, type }
   }
 
-  addTokens(n: number, now: Date): number {
+  addTokens(n: number, now: Date, bucket = 'global'): number {
     const key = dayKeyOf(now)
-    if (key !== this.todayKey) this.todayKey = key
-    const cur = this.tokensByDay.get(key) ?? 0
-    const next = cur + n
-    this.tokensByDay.set(key, next)
-    // Keep the map small: anything older than yesterday is irrelevant.
-    if (this.tokensByDay.size > 3) {
+    if (key !== this.todayKey) {
+      this.todayKey = key
+      // Keep the map small: anything older than today is irrelevant.
       for (const k of [...this.tokensByDay.keys()]) {
-        if (k !== key) this.tokensByDay.delete(k)
+        if (!k.startsWith(key)) this.tokensByDay.delete(k)
       }
     }
+    const mapKey = `${key}\u0000${bucket}`
+    const next = (this.tokensByDay.get(mapKey) ?? 0) + n
+    this.tokensByDay.set(mapKey, next)
     return next
   }
 
-  tokensToday(now: Date): number {
-    const key = dayKeyOf(now)
-    return this.tokensByDay.get(key) ?? 0
+  tokensToday(now: Date, bucket = 'global'): number {
+    return this.tokensByDay.get(`${dayKeyOf(now)}\u0000${bucket}`) ?? 0
   }
 
-  recordToolCall(now: number, windowMs: number): number {
+  recordToolCall(now: number, windowMs: number, bucket = 'global'): number {
     const floor = now - windowMs
-    this.toolCalls = this.toolCalls.filter((ts) => ts >= floor)
-    this.toolCalls.push(now)
-    return this.toolCalls.length
+    const kept = (this.toolCalls.get(bucket) ?? []).filter((ts) => ts >= floor)
+    kept.push(now)
+    this.toolCalls.set(bucket, kept)
+    return kept.length
   }
 
-  reset(): void {
-    this.toolCalls = []
+  reset(bucket?: string): void {
+    if (bucket === undefined) this.toolCalls.clear()
+    else this.toolCalls.delete(bucket)
   }
 }
 
