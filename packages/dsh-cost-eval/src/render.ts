@@ -1,4 +1,5 @@
 import type { CostReport, CostReportEntry, GateVerdict, NormalizedRun } from './types.js'
+import type { TicketReport } from './tickets.js'
 
 function pct(v: number | null): string {
   return v === null ? 'n/a' : `${Math.round(v * 1000) / 10}%`
@@ -73,4 +74,61 @@ function fmtCheck(v: number | null, name: string): string {
   if (name === 'qualityDrop') return pct(v)
   if (name === 'costIncrease') return usd(v)
   return String(Math.round(v * 100) / 100)
+}
+
+/** Renders the per-ticket cost rollup as GitHub-flavored markdown. */
+export function renderTicketReportMarkdown(report: TicketReport, sourceLabel: string): string {
+  const lines: string[] = []
+  lines.push('## dsh-cost-eval tickets', '')
+  lines.push(`Source: \`${sourceLabel}\` — ${report.totals.tickets} ticket(s), ${report.totals.spans} span(s)`, '')
+
+  if (report.totals.tickets === 0) {
+    lines.push(
+      'No ticket-tagged spans found. Ticket rows come from `dsh.ticket.id` / `dsh.ticket.role`,',
+      'which `dsh-trace` writes for `dsh-superagent` Sessions (`worker-<ticketId>`).',
+      '',
+    )
+    if (report.untaggedSpans > 0) lines.push(`${report.untaggedSpans} span(s) carried no ticket tag.`, '')
+    return lines.join('\n')
+  }
+
+  lines.push('| Ticket | Role | LLM | Tools | Failed | Input | Output | Cost |')
+  lines.push('| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |')
+  for (const t of report.tickets) {
+    const cost = t.hasUnpricedModel ? `${usd(t.costUsd)} + unpriced` : usd(t.costUsd)
+    lines.push(
+      `| \`${t.ticketId}\` | ${t.role} | ${t.llmCalls} | ${t.toolCalls} | ${t.failedToolCalls} | ` +
+        `${int(t.inputTokens)} | ${int(t.outputTokens)} | ${cost} |`,
+    )
+  }
+  lines.push(
+    `| **total** | | **${report.totals.llmCalls}** | **${report.totals.toolCalls}** | **${report.totals.failedToolCalls}** | ` +
+      `**${int(report.totals.inputTokens)}** | **${int(report.totals.outputTokens)}** | **${usd(report.totals.costUsd)}** |`,
+    '',
+  )
+
+  if (report.budgetUsd !== undefined) {
+    if (report.overBudget.length === 0) {
+      lines.push(`Budget: ${usd(report.budgetUsd)} per ticket — **all tickets within budget**.`, '')
+    } else {
+      lines.push(`Budget: ${usd(report.budgetUsd)} per ticket — **${report.overBudget.length} over budget**:`, '')
+      for (const t of report.overBudget) {
+        const over = report.budgetUsd > 0 ? ` (${Math.round((t.costUsd / report.budgetUsd - 1) * 1000) / 10}% over)` : ''
+        lines.push(`- \`${t.ticketId}\` — ${usd(t.costUsd)}${over}`)
+      }
+      lines.push('')
+    }
+  }
+
+  if (report.unpriced.length > 0) {
+    lines.push(
+      `Unpriced models (tokens counted, cost excluded): ${report.unpriced.map(m => `\`${m}\``).join(', ')}.`,
+      'Pass `--pricing <file>` with a table you maintain to price them.',
+      '',
+    )
+  }
+  if (report.untaggedSpans > 0) {
+    lines.push(`${report.untaggedSpans} span(s) carried no ticket tag (non-Super-agent sessions).`, '')
+  }
+  return lines.join('\n')
 }

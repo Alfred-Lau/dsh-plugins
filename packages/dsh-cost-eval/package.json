@@ -1,7 +1,7 @@
 {
   "name": "dsh-cost-eval",
-  "version": "0.1.0",
-  "description": "Cost-effectiveness reports and cost release gates over dsh-eval run records — quality x cost matrix, leaderboard, CI gate. Companion to dsh-eval, not a runner.",
+  "version": "0.2.0",
+  "description": "Cost-effectiveness reports, cost release gates over dsh-eval run records, and per-ticket cost rollups over dsh-trace spans (dsh-superagent tickets).",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",

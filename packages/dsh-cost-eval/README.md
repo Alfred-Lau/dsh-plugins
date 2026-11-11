@@ -41,6 +41,39 @@ dsh-cost-eval gate \
 
 Exit codes: `0` pass, `1` gate fail (wire it into CI), `2` usage/parse error.
 
+## Per-ticket cost (dsh-superagent)
+
+`dsh-trace` tags every span of a Super-agent Session with `dsh.ticket.id` /
+`dsh.ticket.role`. `tickets` folds a span batch into one cost row per ticket —
+which is the number an operator needs to answer "what did that ticket cost?"
+
+```bash
+# Roll up a span batch exported by dsh-trace
+dsh-cost-eval tickets spans.json
+
+# Gate: no single ticket may cost more than $5 (exit 1 if one does)
+dsh-cost-eval tickets spans.json --budget-usd 5
+
+# Machine-readable, with your own prices
+dsh-cost-eval tickets spans.json --json --pricing prices.json
+```
+
+Accepted inputs: a raw span array, `{ "spans": [...] }`, an OTLP/JSON trace
+envelope, or the CloudEvents array from `dsh-trace`'s `httpUsage` usage mode.
+
+```json
+{
+  "deepseek-chat": { "input": 0.27, "output": 1.1, "cacheRead": 0.07 },
+  "deepseek-reasoner": { "input": 0.55, "output": 2.19, "cacheRead": 0.14 }
+}
+```
+
+Prices are USD per million tokens. The built-in table is a **reference
+default** — provider prices move, so pass `--pricing` whenever the number has
+to be right. Cache-read tokens are billed at `cacheRead` (defaulting to
+`input`) and the remainder at `input`; a model with no price is listed under
+`unpriced` and its tokens are counted but **not** costed, never billed at zero.
+
 ## Scoring
 
 Per run, folded from the record's `cases[]` (with `aggregate`/`grading` fallbacks):
