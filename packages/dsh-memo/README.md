@@ -53,10 +53,42 @@ a repeated one.
     includeTools: []            # empty = all non-excluded tools
     freshFlag: _memoFresh
     audit: { enabled: true }    # default file: <cwd>/.dsh-tool-memo/audit.jsonl
+    ticket:
+      enabled: true
+      masterId: ""              # router Session id; empty = workers only
+      isolation: ticket         # ticket | session | none
 ```
 
 > A profile-level patch targeting `id: dsh-memo` replaces the WHOLE config
 > row (no deep merge) — restate every key you want to keep.
+
+## Ticket isolation (dsh-superagent)
+
+A cache shared across tickets is a data-leak path. Ticket A reads
+`config/secrets.env`; ticket B asks for the same path; the cache answers
+without touching the tool — and B has just read a file its ticket never
+touched. `ticket.isolation` closes it by folding the ticket into the cache key.
+
+| `isolation` | Bucket | Use when |
+| --- | --- | --- |
+| `ticket` (default) | one cache per ticket; router gets its own | tickets may touch different data |
+| `session` | one cache per Session, router included | strictest; best hit rate sacrificed |
+| `none` | one shared cache | single-tenant runs, or caching only immutable inputs |
+
+The ticket comes from the `worker-<ticketId>` Session naming
+`dsh-superagent` already uses, or from `dsh-ticket-context` when loaded.
+Sessions outside Super-agent share the default bucket, so a plain run keeps the
+pre-0.2 behaviour. Audit lines gain a `bucket` field.
+
+Two honest notes:
+
+- **Isolation costs hit rate.** Identical reads in two tickets both execute
+  once. That is the point: the second execution is where the permission check
+  lives.
+- **`maxEntries` is one global ceiling, not one per ticket.** Bucketing
+  separates keys, not memory, so a busy ticket can evict a quiet ticket's
+  entries. A per-ticket ceiling would let N tickets multiply the process's
+  memory by N.
 
 ## Audit format (JSONL)
 

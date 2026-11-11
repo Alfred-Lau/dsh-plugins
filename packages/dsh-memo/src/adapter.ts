@@ -2,6 +2,7 @@ import type { LoggerService } from '@deepseek-ai/cordis'
 import { MemoStore, cacheKey, preview } from './store.js'
 import { AuditLogger } from './audit.js'
 import type { MemoConfig } from './types.js'
+import type { TicketScopeHandle } from './ticket-scope.js'
 
 /**
  * Tool-pipeline adapter.
@@ -29,6 +30,8 @@ export interface MemoDeps {
   store: MemoStore
   audit: AuditLogger
   logger: LoggerService
+  /** Ticket isolation; absent when the feature is off. */
+  ticketScope?: TicketScopeHandle
 }
 
 export const DEFAULT_EXCLUDE_TOOLS = [
@@ -58,7 +61,7 @@ export const DEFAULT_EXCLUDE_TOOLS = [
 export function attachMemo(ctx: {
   on(event: string, listener: (payload: unknown) => unknown): void
 }, deps: MemoDeps): void {
-  const { config, store, audit, logger } = deps
+  const { config, store, audit, logger, ticketScope } = deps
   const exclude = (config.excludeTools ?? DEFAULT_EXCLUDE_TOOLS).map(compileGlob)
   const include = (config.includeTools ?? []).map(compileGlob)
   const freshFlag = config.freshFlag || '_memoFresh'
@@ -82,13 +85,20 @@ export function attachMemo(ctx: {
       return undefined
     }
     const now = Date.now()
-    const { entry } = store.lookup(call.tool, call.args, now)
+    const bucket = ticketScope?.bucketOf(call.sessionId) ?? ''
+    const { entry } = store.lookup(call.tool, call.args, now, bucket)
     if (!entry) {
-      audit.log({ event: 'miss', tool: call.tool, key: cacheKey(call.tool, call.args), session_id: call.sessionId })
+      audit.log({
+        event: 'miss',
+        tool: call.tool,
+        key: cacheKey(call.tool, call.args, bucket),
+        session_id: call.sessionId,
+        ...(bucket ? { bucket } : {}),
+      })
       return undefined
     }
     const ageMs = now - entry.storedAt
-    audit.log({ event: 'hit', tool: call.tool, key: entry.key, session_id: call.sessionId, age_ms: ageMs })
+    audit.log({ event: 'hit', tool: call.tool, key: entry.key, session_id: call.sessionId, age_ms: ageMs, ...(bucket ? { bucket } : {}) })
     logger.info(`[dsh-tool-memo] hit ${call.tool} (age ${Math.round(ageMs / 1000)}s)`)
     if (injectMode) {
       // EXPERIMENTAL: relies on the harness forwarding verdict.result to the
@@ -118,9 +128,17 @@ export function attachMemo(ctx: {
       audit.log({ event: 'skip', tool: result.tool, key: '-', session_id: result.sessionId, reason: `error result not cached: ${result.error}` })
       return
     }
-    const entry = store.store(result.tool, result.args, result.output, Date.now())
+    const bucket = ticketScope?.bucketOf(result.sessionId) ?? ''
+    const entry = store.store(result.tool, result.args, result.output, Date.now(), bucket)
     if (entry) {
-      audit.log({ event: 'store', tool: result.tool, key: entry.key, session_id: result.sessionId, reason: `ttl=${store.ttlFor(result.tool)}ms` })
+      audit.log({
+        event: 'store',
+        tool: result.tool,
+        key: entry.key,
+        session_id: result.sessionId,
+        reason: `ttl=${store.ttlFor(result.tool)}ms`,
+        ...(bucket ? { bucket } : {}),
+      })
     }
   })
 }

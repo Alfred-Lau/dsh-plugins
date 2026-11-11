@@ -31,6 +31,8 @@ export interface MemoAuditEntry {
   key: string
   age_ms?: number
   reason?: string
+  /** Cache bucket (ticket isolation); absent when the cache is shared. */
+  bucket?: string
 }
 
 export interface MemoConfig {
@@ -56,4 +58,6 @@ export interface MemoConfig {
   /** Argument flag that bypasses cache lookup (default `_memoFresh`). */
   freshFlag?: string
   audit?: MemoAuditConfig
+  /** Cache isolation across dsh-superagent tickets. */
+  ticket?: import('./ticket-scope.js').TicketMemoConfig
 }

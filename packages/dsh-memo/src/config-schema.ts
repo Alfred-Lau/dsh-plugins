@@ -15,6 +15,12 @@ export const Config: Schema<MemoConfig> = Schema.object({
   excludeTools: Schema.array(Schema.string()),
   includeTools: Schema.array(Schema.string()),
   freshFlag: Schema.string().default('_memoFresh'),
+  ticket: Schema.object({
+    enabled: Schema.boolean().default(true),
+    masterId: Schema.string().default(''),
+    workerPrefix: Schema.string().default('worker-'),
+    isolation: Schema.union(['ticket', 'session', 'none'] as const).default('ticket'),
+  }),
   audit: Schema.object({
     enabled: Schema.boolean().default(true),
     file: Schema.string().default(''),

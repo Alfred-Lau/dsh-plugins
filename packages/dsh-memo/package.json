@@ -1,7 +1,7 @@
 {
   "name": "dsh-tool-memo",
-  "version": "0.1.1",
-  "description": "Tool-result memoization for DeepSeek Harness — TTL cache over idempotent tool calls; cache hits short-circuit re-execution with an explanatory verdict, LRU-bounded, per-tool TTLs, JSONL audit.",
+  "version": "0.2.0",
+  "description": "Tool-result memoization for DeepSeek Harness — TTL cache over idempotent tool calls; cache hits short-circuit re-execution with an explanatory verdict, LRU-bounded, per-tool TTLs, JSONL audit. Per-ticket cache isolation so one dsh-superagent ticket never reads another ticket cached result.",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",

@@ -2,10 +2,11 @@ import { createHash } from 'node:crypto'
 import type { MemoConfig, MemoEntry } from './types.js'
 
 /**
- * TTL + LRU cache keyed by a stable hash of (tool, args).
+ * TTL + LRU cache keyed by a stable hash of (bucket, tool, args).
  *
- * - Keys are content-addressed: same tool + same args => same key, so the
- *   cache is safe to share across sessions of the same profile.
+ * - Keys are content-addressed within a bucket: same tool + same args => same
+ *   key. The bucket isolates dsh-superagent tickets from each other, so a
+ *   ticket can never be served a result another ticket produced.
  * - LRU bound: inserting beyond capacity evicts the least-recently-used entry
  *   (Map preserves insertion order; a get refreshes it).
  * - Expired entries are treated as misses and lazily removed.
@@ -38,8 +39,8 @@ export class MemoStore {
     return this.defaultTtlMs
   }
 
-  lookup(tool: string, args: unknown, now: number): { entry?: MemoEntry } {
-    const key = cacheKey(tool, args)
+  lookup(tool: string, args: unknown, now: number, bucket = ''): { entry?: MemoEntry } {
+    const key = cacheKey(tool, args, bucket)
     const entry = this.map.get(key)
     if (!entry) return {}
     if (entry.expiresAt <= now) {
@@ -53,10 +54,10 @@ export class MemoStore {
     return { entry }
   }
 
-  store(tool: string, args: unknown, value: unknown, now: number): MemoEntry | undefined {
+  store(tool: string, args: unknown, value: unknown, now: number, bucket = ''): MemoEntry | undefined {
     const ttl = this.ttlFor(tool)
     if (ttl <= 0) return undefined
-    const key = cacheKey(tool, args)
+    const key = cacheKey(tool, args, bucket)
     // Delete first so re-storing refreshes LRU order.
     this.map.delete(key)
     const entry: MemoEntry = {
@@ -92,8 +93,13 @@ function stableStringify(value: unknown): string {
   return `{${body}}`
 }
 
-export function cacheKey(tool: string, args: unknown): string {
-  return createHash('sha256').update(`${tool}\u0000${stableStringify(args)}`).digest('hex').slice(0, 24)
+/**
+ * Content-addressed key. `bucket` prefixes the hash so two buckets can never
+ * collide, even on identical tool + args.
+ */
+export function cacheKey(tool: string, args: unknown, bucket = ''): string {
+  const material = bucket ? `${bucket}\u0000${tool}\u0000${stableStringify(args)}` : `${tool}\u0000${stableStringify(args)}`
+  return createHash('sha256').update(material).digest('hex').slice(0, 24)
 }
 
 /** Bounded preview of a cached value for verdict reasons. */
